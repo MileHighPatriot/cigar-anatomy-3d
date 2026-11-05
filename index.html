@@ -434,9 +434,9 @@ function addSeam(mat){
       {
         float s = fract(vSeam);
         float w = max(fwidth(vSeam) * 1.2, 0.0035);
-        float shadowLine = exp(-pow((1.0 - s) / (w * 3.5), 2.0)) + 0.6 * exp(-pow((1.0 - s) / (w * 10.0), 2.0));
+        float shadowLine = exp(-pow((1.0 - s) / (w * 2.5), 2.0)) + 0.35 * exp(-pow((1.0 - s) / (w * 8.0), 2.0));
         float edge = exp(-pow(s / (w * 1.6), 2.0));
-        diffuseColor.rgb *= 1.0 - 0.34 * clamp(shadowLine, 0.0, 1.0);
+        diffuseColor.rgb *= 1.0 - 0.3 * clamp(shadowLine, 0.0, 1.0);
         diffuseColor.rgb += edge * 0.07 * vec3(1.0, 0.85, 0.65);
       }`);
   };
@@ -445,6 +445,7 @@ function addSeam(mat){
 }
 function leafMats(hex, kind, o = {}){
   const col = C(hex);
+  if (kind === "wrapper" || kind === "tooth"){ const hsl = {}; col.getHSL(hsl); col.setHSL(hsl.h, hsl.s*.78, hsl.l); } // real wrappers are less saturated than the swatches
   const set = leafSet(kind);
   const outer = new THREE.MeshPhysicalMaterial({
     ...set, color:col, vertexColors:true, side:THREE.FrontSide,
@@ -470,48 +471,52 @@ function bandTextures(name, country, ratio = 3.5){
   if (texCache.has(k)) return texCache.get(k);
   const co = COUNTRIES.find(c => c.id === country) || COUNTRIES[2];
   const [base, , cream] = co.band;
+  // canvas x runs around the cigar, canvas y runs along it (top = toward the head),
+  // so the art reads upright when the cigar stands on its foot, like a real band
   const H = 512, W = Math.round(H*ratio);
   const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; return c; };
-  const colC = mk(), maskC = mk();
-  const draw = (g, mask) => {
-    const GOLD = mask ? "#fff" : (() => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#f3d58e"); gr.addColorStop(.25, "#c99a3e"); gr.addColorStop(.5, "#f6dc9a"); gr.addColorStop(.75, "#b9862f"); gr.addColorStop(1, "#e9c87a"); return gr; })();
+  const colC = mk(), maskC = mk(), alphaC = mk();
+  const sT = H*.15, sB = H*.85;                  // the strip; the medallion is taller (die-cut)
+  const cxm = W*.25, cy = H/2, rx = Math.min(W*.1, H*.42), ry = H*.485;
+  const draw = (g, mode) => {
+    const mask = mode !== "color";
+    const GOLD = mask ? "#fff" : (() => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#f6dc98"); gr.addColorStop(.3, "#c4923a"); gr.addColorStop(.5, "#f8e2a6"); gr.addColorStop(.72, "#b07c2c"); gr.addColorStop(1, "#ecc979"); return gr; })();
     const BASE = mask ? "#000" : base, CREAM = mask ? "#555" : cream;
+    g.clearRect(0, 0, W, H);
+    if (mode === "alpha"){ g.fillStyle = "#000"; g.fillRect(0, 0, W, H); g.fillStyle = "#fff"; g.fillRect(0, sT, W, sB - sT); g.beginPath(); g.ellipse(cxm, cy, rx, ry, 0, 0, TAU); g.fill(); return; }
     g.fillStyle = BASE; g.fillRect(0, 0, W, H);
-    if (!mask){ // printed paper grain
-      for (let i = 0; i < W*H/40; i++){ g.fillStyle = `rgba(${Math.random() < .5 ? "0,0,0" : "255,255,255"},${Math.random()*.05})`; g.fillRect(Math.random()*W, Math.random()*H, 2, 2); }
-    }
-    // foil borders with a bead pattern
-    g.fillStyle = GOLD; g.fillRect(0, 0, W, 58); g.fillRect(0, H - 58, W, 58);
-    g.fillStyle = BASE;
-    for (let x = 0; x < W; x += 30){ for (const y of [29, H - 29]){ g.beginPath(); g.ellipse(x + 15, y, 9, 13, 0, 0, TAU); g.fill(); } }
-    g.fillStyle = GOLD;
-    for (let x = 0; x < W; x += 30){ for (const y of [29, H - 29]){ g.beginPath(); g.ellipse(x + 15, y, 5, 8, 0, 0, TAU); g.fill(); } }
-    g.fillStyle = CREAM; g.fillRect(0, 66, W, 6); g.fillRect(0, H - 72, W, 6);
-    // fine foil filigree along the strip
-    if (!mask){ g.strokeStyle = "rgba(255,255,255,.07)"; g.lineWidth = 1.5;
-      for (let x = -H; x < W + H; x += 9){ g.beginPath(); g.moveTo(x, 80); g.lineTo(x + H - 160, H - 80); g.stroke(); g.beginPath(); g.moveTo(x + H - 160, 80); g.lineTo(x, H - 80); g.stroke(); } }
-    // medallion on the front (u = .25), read with the cigar lying flat, head to the right
-    const cxm = W*.25, cy = H/2;
-    g.fillStyle = BASE; g.beginPath(); g.ellipse(cxm, cy, 150, 205, 0, 0, TAU); g.fill();
-    g.strokeStyle = GOLD; g.lineWidth = 16; g.beginPath(); g.ellipse(cxm, cy, 140, 196, 0, 0, TAU); g.stroke();
-    g.lineWidth = 4; g.beginPath(); g.ellipse(cxm, cy, 118, 172, 0, 0, TAU); g.stroke();
-    for (let i = 0; i < 28; i++){ const a = i/28*TAU; g.fillStyle = GOLD; g.beginPath(); g.arc(cxm + Math.cos(a)*129, cy + Math.sin(a)*184, 4, 0, TAU); g.fill(); }
-    g.save(); g.translate(cxm, cy); g.rotate(-Math.PI/2);
+    if (!mask){ for (let i = 0; i < W*H/50; i++){ g.fillStyle = `rgba(${Math.random() < .5 ? "0,0,0" : "255,255,255"},${Math.random()*.045})`; g.fillRect(Math.random()*W, Math.random()*H, 2, 2); } }
+    // foil rules along both edges of the strip, with a fine bead
+    g.fillStyle = GOLD; g.fillRect(0, sT, W, 34); g.fillRect(0, sB - 34, W, 34);
+    g.fillStyle = BASE; for (let x = 0; x < W; x += 22){ for (const y of [sT + 17, sB - 17]){ g.beginPath(); g.arc(x + 11, y, 6, 0, TAU); g.fill(); } }
+    g.fillStyle = GOLD; for (let x = 0; x < W; x += 22){ for (const y of [sT + 17, sB - 17]){ g.beginPath(); g.arc(x + 11, y, 3, 0, TAU); g.fill(); } }
+    g.fillStyle = CREAM; g.fillRect(0, sT + 42, W, 4); g.fillRect(0, sB - 46, W, 4);
+    if (!mask){ g.strokeStyle = "rgba(255,255,255,.06)"; g.lineWidth = 1.4; for (let x = -H; x < W + H; x += 8){ g.beginPath(); g.moveTo(x, sT + 50); g.lineTo(x + (sB - sT - 100), sB - 50); g.stroke(); } }
+    // side scrolls either side of the medallion
+    g.strokeStyle = GOLD; g.lineWidth = 6;
+    for (const dir of [-1, 1]){ const x0 = cxm + dir*(rx + 18); g.beginPath(); g.moveTo(x0, cy - 70); g.bezierCurveTo(x0 + dir*60, cy - 70, x0 + dir*60, cy, x0 + dir*24, cy); g.bezierCurveTo(x0 - dir*10, cy, x0 + dir*10, cy + 40, x0 + dir*40, cy + 30); g.stroke();
+      g.beginPath(); g.moveTo(x0, cy + 70); g.bezierCurveTo(x0 + dir*60, cy + 70, x0 + dir*60, cy, x0 + dir*24, cy); g.stroke(); }
+    // die-cut medallion with a gold rim
+    g.fillStyle = GOLD; g.beginPath(); g.ellipse(cxm, cy, rx, ry, 0, 0, TAU); g.fill();
+    g.fillStyle = mask ? "#000" : (() => { const gr = g.createRadialGradient(cxm, cy - ry*.3, 10, cxm, cy, ry); gr.addColorStop(0, cream); gr.addColorStop(1, "#d9c49a"); return gr; })();
+    g.beginPath(); g.ellipse(cxm, cy, rx - 16, ry - 16, 0, 0, TAU); g.fill();
+    g.strokeStyle = GOLD; g.lineWidth = 3; g.beginPath(); g.ellipse(cxm, cy, rx - 26, ry - 26, 0, 0, TAU); g.stroke();
+    for (let i = 0; i < 36; i++){ const a = i/36*TAU; g.fillStyle = GOLD; g.beginPath(); g.arc(cxm + Math.cos(a)*(rx - 8), cy + Math.sin(a)*(ry - 8), 3, 0, TAU); g.fill(); }
     g.textAlign = "center"; g.textBaseline = "middle";
     const nm = name.toUpperCase().split(" /")[0];
-    g.fillStyle = GOLD; g.font = `700 ${nm.length > 9 ? 44 : 58}px Fraunces, Georgia, serif`; g.fillText(nm, 0, -14, 300);
-    g.fillStyle = CREAM; g.font = "700 26px system-ui, sans-serif"; g.fillText(country.toUpperCase(), 0, 42, 280);
-    g.fillStyle = GOLD; g.font = "600 30px Fraunces, Georgia, serif"; g.fillText("✦  HECHO A MANO  ✦", 0, -74, 300);
-    g.restore();
+    const INK = mask ? "#333" : base;
+    g.fillStyle = INK; g.font = `700 ${Math.min(46, (rx*1.5)/Math.max(4, nm.length)*1.7)}px Fraunces, Georgia, serif`; g.fillText(nm, cxm, cy - 18, rx*1.6);
+    g.fillStyle = GOLD; g.fillRect(cxm - rx*.45, cy + 14, rx*.9, 3);
+    g.fillStyle = INK; g.font = "700 22px system-ui, sans-serif"; g.fillText(country.toUpperCase(), cxm, cy + 44, rx*1.5);
+    g.fillStyle = mask ? "#fff" : "#b8862f"; g.font = "600 22px Fraunces, Georgia, serif"; g.fillText("HECHO A MANO", cxm, cy - ry*.62, rx*1.3);
     // glued overlap at the back
-    g.fillStyle = mask ? "#222" : "rgba(0,0,0,.25)"; g.fillRect(W*.75 - 3, 58, 6, H - 116);
+    g.fillStyle = mask ? "#222" : "rgba(0,0,0,.25)"; g.fillRect(W*.75 - 3, sT, 6, sB - sT);
   };
-  draw(colC.getContext("2d"), false); draw(maskC.getContext("2d"), true);
-  // height -> normal map, mask -> metal/roughness
+  draw(colC.getContext("2d"), "color"); draw(maskC.getContext("2d"), "mask"); draw(alphaC.getContext("2d"), "alpha");
   const md = maskC.getContext("2d").getImageData(0, 0, W, H).data;
   let h = new Float32Array(W*H);
   for (let i = 0; i < W*H; i++) h[i] = md[i*4]/255;
-  for (let pass = 0; pass < 2; pass++){ const o = new Float32Array(W*H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){ const xx = (x + dx + W) % W, yy = Math.min(H - 1, Math.max(0, y + dy)); s += h[yy*W + xx]; } o[y*W + x] = s/9; } h = o; }
+  for (let pass = 0; pass < 2; pass++){ const o = new Float32Array(W*H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ let sum = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){ const xx = (x + dx + W) % W, yy = Math.min(H - 1, Math.max(0, y + dy)); sum += h[yy*W + xx]; } o[y*W + x] = sum/9; } h = o; }
   const nC = mk(), mrC = mk();
   const nI = nC.getContext("2d").createImageData(W, H), mI = mrC.getContext("2d").createImageData(W, H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){
@@ -519,12 +524,12 @@ function bandTextures(name, country, ratio = 3.5){
     const dx = (h[y*W + xr] - h[y*W + xl])*3, dy = (h[yu*W + x] - h[yd*W + x])*3;
     const l = Math.hypot(dx, dy, 1);
     nI.data[i*4] = (-dx/l*.5 + .5)*255; nI.data[i*4+1] = (-dy/l*.5 + .5)*255; nI.data[i*4+2] = (1/l*.5 + .5)*255; nI.data[i*4+3] = 255;
-    const m = md[i*4]/255, metal = m > .9 ? 1 : 0;
-    mI.data[i*4] = 0; mI.data[i*4+1] = (metal ? .28 : .62)*255; mI.data[i*4+2] = metal*255; mI.data[i*4+3] = 255;
+    const metal = md[i*4] > 230 ? 1 : 0;
+    mI.data[i*4] = 0; mI.data[i*4+1] = (metal ? .26 : .6)*255; mI.data[i*4+2] = metal*255; mI.data[i*4+3] = 255;
   }
   nC.getContext("2d").putImageData(nI, 0, 0); mrC.getContext("2d").putImageData(mI, 0, 0);
   const mkT = (c, srgb) => { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; t.wrapS = THREE.RepeatWrapping; return t; };
-  const out = {map:mkT(colC, true), normalMap:mkT(nC), metalnessMap:mkT(mrC), roughnessMap:mkT(mrC)};
+  const out = {map:mkT(colC, true), normalMap:mkT(nC), metalnessMap:mkT(mrC), roughnessMap:mkT(mrC), alphaMap:mkT(alphaC)};
   texCache.set(k, out);
   return out;
 }
@@ -587,7 +592,8 @@ function revolve(profile, {phi0 = 0, phiLen = TAU, seg = 72, press = 0, off = nu
       else { uv[o*2] = phi/TAU*nAround; uv[o*2+1] = x/tile; }
       if (sm) sm[o] = seam(phi, x);
       const s = shade ? shade(phi, x) : 1;
-      col[o*3] = col[o*3+1] = col[o*3+2] = s;
+      if (typeof s === "number") col[o*3] = col[o*3+1] = col[o*3+2] = s;
+      else { col[o*3] = s[0]; col[o*3+1] = s[1]; col[o*3+2] = s[2]; }
     }
   }
   const idx = [];
@@ -666,11 +672,11 @@ function buildCigar(p, opts = {}){
   const prof = (k, a, b, n = ROWS, add0 = 0) => samplesX(L, a, b, n).map(x => [x + cx, R*k*f(x) + add0, f(x)]);
 
   // hand-rolled, so never a perfect tube: a gentle wobble, plus the spiral seam of the wrapper
-  const wob = (phi, x) => .006*Math.sin(2*phi + 1.7*x + 1.3) + .004*Math.sin(3*phi - 2.3*x + .4) + .0025*Math.sin(5*phi + 4.1*x);
+  const wob = (phi, x) => .006*Math.sin(2*phi + 1.7*x + 1.3) + .004*Math.sin(3*phi - 2.3*x + .4) + .0025*Math.sin(5*phi + 4.1*x) + .004*Math.sin(3.3*x + .7)*Math.cos(phi - 1.1) + .002*Math.sin(9*x + 2*phi);
   const pitch = Math.max(1.6, R*4.2);
   const seamPh = (phi, x) => { const s = phi/TAU + (x - cx)/pitch; return s - Math.floor(s); };
   const near = x => clamp(f(x - cx)*3);
-  const wrapDisp = (phi, x, r) => near(x)*(R*wob(phi, x) + leafT*1.4*smooth01(seamPh(phi, x)/.06)*(1 - seamPh(phi, x)));
+  const wrapDisp = (phi, x, r) => near(x)*(R*wob(phi, x) + leafT*.9*smooth01(seamPh(phi, x)/.06)*(1 - seamPh(phi, x)));
   const seamU = (phi, x) => phi/TAU + (x - cx)/pitch;
   const innerDisp = (phi, x) => near(x)*R*wob(phi, x);
   const wrapShade = (phi, x) => { const s = seamPh(phi, x); void s; return 1 - .05*Math.sin(.9*x + 2*phi); };
@@ -706,14 +712,16 @@ function buildCigar(p, opts = {}){
   bandEnd = clamp(bandEnd, bw + .3, L - .4);
   const bandX0 = bandEnd - bw;
   const bandR = x => R*f(x) + R*.016 + leafT*2.5;
-  const bProf = []; for (let i = 0; i <= 10; i++){ const x = bandX0 + bw*i/10; bProf.push([x + cx, bandR(x), f(x)]); }
-  const bt = bandTextures(p.name || "Custom", p.madeIn, (TAU*bandR(bandX0 + bw/2))/bw);
+  // the paper is cut wider than the strip so the medallion can stand proud of it
+  const gw = bw/.7, gx0 = bandX0 - (gw - bw)/2, gx1 = gx0 + gw;
+  const bProf = []; for (let i = 0; i <= 12; i++){ const x = gx0 + gw*i/12; bProf.push([x + cx, bandR(x), f(x)]); }
+  const bt = bandTextures(p.name || "Custom", p.madeIn, (TAU*bandR(bandX0 + bw/2))/gw);
   const bandMats = {
-    outer:new THREE.MeshPhysicalMaterial({...bt, color:C("#ffffff"), metalness:1, roughness:1, clearcoat:.06, clearcoatRoughness:.5, side:THREE.FrontSide, emissive:C(0)}),
-    inner:new THREE.MeshStandardMaterial({color:C("#efe4cc"), roughness:.85, side:THREE.BackSide, emissive:C(0)}),
+    outer:new THREE.MeshPhysicalMaterial({...bt, color:C("#ffffff"), metalness:1, roughness:1, clearcoat:.06, clearcoatRoughness:.5, alphaTest:.5, side:THREE.FrontSide, emissive:C(0)}),
+    inner:new THREE.MeshStandardMaterial({color:C("#efe4cc"), alphaMap:bt.alphaMap, alphaTest:.5, roughness:.85, side:THREE.BackSide, emissive:C(0)}),
     edge:new THREE.MeshStandardMaterial({color:C("#f4ead6"), roughness:.8, side:THREE.DoubleSide, emissive:C(0)})
   };
-  add(leafShell(bProf, {seg:lite ? 96 : 160, press:p.press, uvMode:"band", x0:bandX0 + cx, x1:bandEnd + cx}, bandMats, .006), "band");
+  add(leafShell(bProf, {seg:lite ? 96 : 180, press:p.press, uvMode:"band", x0:gx0 + cx, x1:gx1 + cx}, bandMats, .004, {edges:false}), "band");
 
   // FOOT: end-on view of the packed filler
   const footR = R*f(0) - leafT*2.2;
@@ -756,9 +764,10 @@ function buildCigar(p, opts = {}){
       const pr = [[cx, 0, f(0)], ...samplesX(L, 0, L, 110).map(x => [x + cx, a*f(x)*1.05, f(x)])];
       pr.push([L + cx, 0, 0]);
       const k = i*1.7;
-      const crinkle = (phi, x, r) => r*(.08*Math.sin(3*phi + 2.1*x + k) + .05*Math.sin(5*phi - 3.3*x + 2*k) + .04*Math.sin(9*phi + 5*x + 3*k) + .03*Math.sin(14*phi - 7*x + k));
-      const m = fMats[rd.type] ||= leafMats(PRIMINGS[rd.type].hex, "filler", {rough:.88, sheen:.25, coat:0, normal:1.0});
-      const mesh = new THREE.Mesh(revolve(pr, {seg:64, press:p.press, off:[oy, oz], nAround:1, tile:1.2, disp:crinkle}), m.outer);
+      // accordion folds run the length of the bunch, with a little wander
+      const crinkle = (phi, x, r) => r*(.06*Math.sin(3*phi + 2.1*x + k) + .04*Math.sin(5*phi - 3.3*x + 2*k) + .07*(Math.abs(Math.sin(4.5*phi + .35*Math.sin(2*x + k))) - .5) + .03*Math.sin(13*phi - 1.5*x + k));
+      const m = fMats[rd.type] ||= leafMats(PRIMINGS[rd.type].hex, "binder", {rough:.86, sheen:.3, coat:0, normal:1.3});
+      const mesh = new THREE.Mesh(revolve(pr, {seg:96, press:p.press, off:[oy, oz], nAround:1, tile:.9, disp:crinkle}), m.outer);
       add(mesh, "filler", {priming:rd.type, oy, oz, ty:rd.slot*spacing, i});
     });
     const fillerHalf = 3*spacing + a;
@@ -812,20 +821,22 @@ function buildCigar(p, opts = {}){
 /* ---------- the tobacco plant: where each filler leaf grows ---------- */
 const ZONES = ["volado", "seco", "viso", "ligero"];
 const ZONE_INFO = {
-  volado:{where:"Bottom of the plant", tint:"#f1dc96"},
-  seco:{where:"Middle of the plant", tint:"#f7f0c8"},
+  volado:{where:"Bottom of the plant", tint:"#fff1b8"},
+  seco:{where:"Middle of the plant", tint:"#fffbea"},
   viso:{where:"Upper-middle of the plant", tint:"#ffffff"},
-  ligero:{where:"Top of the plant", tint:"#cfe2b4"}
+  ligero:{where:"Top of the plant", tint:"#e6f2d8"}
 };
 function leafGeo(len, wid, droop, seed){
-  const NS = 48, NT = 20, pos = [], uv = [], idx = [];
+  // broad, elliptic, pointed tip; the blade cups up from the midrib and the tip droops
+  const NS = 56, NT = 24, pos = [], uv = [], idx = [];
   for (let i = 0; i <= NS; i++){
     const s = i/NS;
-    const w = wid*Math.pow(Math.sin(Math.PI*Math.pow(s, .8)), .9)*(1.05 - .3*s) + wid*.05*(1 - s);
+    const w = wid*Math.pow(Math.sin(Math.PI*Math.pow(s, .82)), .72)*(1.06 - .22*s) + wid*.04*(1 - s);
     for (let j = 0; j <= NT; j++){
       const t = -1 + 2*j/NT;
       const x = s*len, z = t*w;
-      const y = -droop*len*s*s + .2*w*Math.abs(t) + .07*wid*Math.sin(s*20 + seed + t*2.5)*t*t + .03*wid*Math.sin(s*9 + seed*2)*(1 - t*t);
+      let y = -droop*len*s*s*s + .26*w*t*t + .05*wid*Math.sin(s*14 + seed + t*2)*t*t*t*t;
+      y += .025*wid*Math.sin(s*Math.PI*9 + seed)*(1 - Math.abs(t))*Math.abs(t)*4; // quilting between the side veins
       pos.push(x, y, z); uv.push(s, (t + 1)/2);
     }
   }
@@ -835,48 +846,69 @@ function leafGeo(len, wid, droop, seed){
   g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
+// a tobacco flower: a long cream tube that flares into a five-pointed pink trumpet
+function flowerGeo(){
+  const L = .5, prof = [];
+  for (let i = 0; i <= 40; i++){
+    const x = L*i/40, u = x/L;
+    const r = u < .72 ? .026 + .012*u : .035 + .13*Math.pow((u - .72)/.28, 1.6);
+    prof.push([x, r, 1]);
+  }
+  return revolve(prof, {seg:60, nAround:1, tile:1,
+    disp:(phi, x, r) => { const u = x/L; return u > .8 ? r*.28*Math.cos(5*phi)*((u - .8)/.2) : 0; },
+    shade:(phi, x) => { const u = x/L, k = clamp((u - .62)/.3); const c = [.93 + .03*k, .9 - .32*k, .72 - .1*k]; return c; }});
+}
 function buildPlant(){
   const g = new THREE.Group(), meshes = [], leaves = [], mats = {}, zoneY = {};
   const H = 9.2;
   // stalk
-  const sProf = []; for (let i = 0; i <= 40; i++){ const x = H*i/40; sProf.push([x, .17*(1 - .72*i/40), 1]); }
-  sProf.push([H, 0, 0]);
-  const stalkMat = new THREE.MeshPhysicalMaterial({color:C("#7d9444"), roughness:.65, sheen:.8, sheenRoughness:.4, sheenColor:C("#e6f0c8"), normalMap:tex("filler_normal.jpg"), normalScale:new THREE.Vector2(.5, .5), side:THREE.DoubleSide});
+  const SH = H + .9; const sProf = []; for (let i = 0; i <= 40; i++){ const x = SH*i/40; sProf.push([x, .17*(1 - .78*i/40), 1]); }
+  sProf.push([SH, 0, 0]);
+  const stalkMat = new THREE.MeshPhysicalMaterial({color:C("#93b052"), roughness:.65, sheen:.8, sheenRoughness:.4, sheenColor:C("#e6f0c8"), normalMap:tex("filler_normal.jpg"), normalScale:new THREE.Vector2(.5, .5), side:THREE.DoubleSide});
   const stalk = new THREE.Mesh(revolve(sProf, {seg:24, nAround:1, tile:2}), stalkMat);
   stalk.rotation.z = Math.PI/2; stalk.castShadow = true; g.add(stalk);
   // leaves, spiralling up the stalk; big at the bottom, smaller at the top
   const leafTex = {map:tex("plantleaf_albedo.jpg", true), normalMap:tex("plantleaf_normal.jpg")};
   leafTex.map.wrapS = leafTex.map.wrapT = leafTex.normalMap.wrapS = leafTex.normalMap.wrapT = THREE.ClampToEdgeWrapping;
-  for (const z of ZONES) mats[z] = new THREE.MeshPhysicalMaterial({...leafTex, color:C(ZONE_INFO[z].tint), roughness:.62, sheen:.25, sheenRoughness:.6, sheenColor:C("#b8d890"), normalScale:new THREE.Vector2(.55, .55), side:THREE.DoubleSide, emissive:C(0)});
-  const N = 18;
+  for (const z of ZONES) mats[z] = new THREE.MeshPhysicalMaterial({...leafTex, color:C(ZONE_INFO[z].tint), roughness:.62, sheen:.2, sheenRoughness:.6, sheenColor:C("#d8f0a0"), clearcoat:.04, clearcoatRoughness:.6, normalScale:new THREE.Vector2(.8, .8), side:THREE.DoubleSide, emissive:C(0)});
+  const N = 16;
   for (let i = 0; i < N; i++){
     const f = i/(N - 1);
     const zone = f < .3 ? "volado" : f < .58 ? "seco" : f < .8 ? "viso" : "ligero";
-    const y = .45 + f*(H - 1.4);
-    const len = 4.3*(1 - .55*Math.pow(f, 1.4)), wid = len*.46;
+    const y = .4 + Math.pow(f, 1.12)*(H - 1.6);
+    const len = 4.7*(1 - .62*Math.pow(f, 1.4)), wid = len*.5;
     const pivot = new THREE.Group(); pivot.position.y = y; pivot.rotation.y = i*2.39996;
-    const leaf = new THREE.Mesh(leafGeo(len, wid, .3 - .18*f, i*1.3), mats[zone]);
-    leaf.position.x = .12*(1 - .7*f); leaf.rotation.z = .12 + .6*f; leaf.rotation.x = (i % 2 ? .08 : -.08);
+    const leaf = new THREE.Mesh(leafGeo(len, wid, .42 - .25*f, i*1.3), mats[zone]);
+    leaf.position.x = .12*(1 - .7*f); leaf.rotation.z = .28 + .55*f; leaf.rotation.x = (i % 2 ? .08 : -.08);
     leaf.castShadow = true;
     Object.assign(leaf.userData, {part:"leaf", priming:zone, len});
     pivot.add(leaf); g.add(pivot);
     meshes.push(leaf); leaves.push(leaf);
     (zoneY[zone] ||= []).push(y);
   }
-  // flower head
-  const flowerMat = new THREE.MeshPhysicalMaterial({color:C("#e9a3b6"), roughness:.55, sheen:.6, sheenColor:C("#ffe0ea"), side:THREE.DoubleSide});
-  const calyxMat = new THREE.MeshStandardMaterial({color:C("#7f9a46"), roughness:.7});
-  for (let k = 0; k < 16; k++){
-    const a = k*2.39996, tilt = .45 + .65*(k/16);
-    const fl = new THREE.Group(); fl.position.y = H - .15; fl.rotation.y = a;
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(.015, .02, .5, 6), calyxMat); stem.position.set(Math.sin(tilt)*.3, .3, 0); stem.scale.y = 1.25; stem.rotation.z = -tilt; fl.add(stem);
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(.09, .03, .38, 10, 1, true), flowerMat);
-    tube.position.set(Math.sin(tilt)*.7, .7, 0); tube.rotation.z = -tilt; tube.castShadow = true; fl.add(tube);
+  // flower head: open trumpets and green buds on short branches
+  const flowerMat = new THREE.MeshPhysicalMaterial({vertexColors:true, roughness:.5, sheen:.7, sheenRoughness:.4, sheenColor:C("#fff2f4"), side:THREE.DoubleSide});
+  const greenMat = new THREE.MeshPhysicalMaterial({color:C("#88a848"), roughness:.6, sheen:.6, sheenColor:C("#e8f4c0")});
+  const fGeo = flowerGeo(), budGeo = new THREE.SphereGeometry(.07, 14, 10), calGeo = new THREE.SphereGeometry(.065, 12, 8);
+  const top = new THREE.Vector3(0, H + .8, 0), XA = new THREE.Vector3(1, 0, 0);
+  for (let k = 0; k < 15; k++){
+    const a = k*2.39996, th = .2 + .85*(k/15);
+    const dir = new THREE.Vector3(Math.cos(a)*Math.sin(th), Math.cos(th), Math.sin(a)*Math.sin(th)).normalize();
+    const stemLen = .25 + .25*(k/15);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(.014, .02, stemLen, 6), greenMat);
+    stem.position.copy(top).addScaledVector(dir, stemLen/2); stem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); g.add(stem);
+    const tip = top.clone().addScaledVector(dir, stemLen);
+    const fl = new THREE.Group(); fl.position.copy(tip); fl.quaternion.setFromUnitVectors(XA, dir);
+    const cal = new THREE.Mesh(calGeo, greenMat); cal.scale.set(1.5, .9, .9); cal.position.x = .05; fl.add(cal);
+    if (k % 3 !== 1){ const fm = new THREE.Mesh(fGeo, flowerMat); fm.position.x = .08; fm.castShadow = true; fl.add(fm); }
+    else { const bud = new THREE.Mesh(budGeo, greenMat); bud.scale.set(2.4, .75, .75); bud.position.x = .16; fl.add(bud); }
     g.add(fl);
   }
-  // soil
-  const soil = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.7, .3, 48), new THREE.MeshStandardMaterial({map:tex("foot_albedo.jpg", true), color:C("#8a6a52"), roughness:.95}));
-  soil.position.y = -.12; soil.castShadow = true; g.add(soil);
+  // soil: a mound of reddish earth, like the fields in the photos
+  const soilProf = [[-.05, 2.0, 1], [0, 2.0, 1], [.06, 1.8, 1], [.16, 1.3, 1], [.26, .6, 1], [.3, .2, 1], [.3, 0, 0]];
+  const soil = new THREE.Mesh(revolve(soilProf, {seg:64, nAround:3, tile:.8, disp:(phi, x, r) => r*(.06*Math.sin(5*phi + 1) + .04*Math.sin(11*phi + 2))}),
+    new THREE.MeshStandardMaterial({map:tex("foot_albedo.jpg", true), normalMap:tex("foot_normal.jpg"), color:C("#c07a52"), roughness:.97}));
+  soil.rotation.z = Math.PI/2; soil.position.y = -.25; soil.receiveShadow = true; g.add(soil);
   // brackets marking each priming zone
   const zoneSpan = {};
   for (const z of ZONES){
@@ -931,7 +963,7 @@ function rebuild(){
   if (S.view === "plant"){
     plant = buildPlant();
     const nar = stage.clientWidth < 640;
-    plant.group.position.set(nar ? -3.0 : -2.3, -4.7, 0);
+    plant.group.position.set(nar ? -3.0 : -2.3, -5.1, 0);
     root.add(plant.group);
     plantCigar = buildCigar(currentParams());
     plantCigar.update(1);
@@ -941,7 +973,7 @@ function rebuild(){
     plantCigar.group.position.set(nar ? 3.0 : 3.7, -.2, 0);
     plantCigar.group.rotation.y = -.3;
     root.add(plantCigar.group);
-    fitDist = nar ? fitFor(8.4, 5.9) : fitFor(7.4, 5.9);
+    fitDist = nar ? fitFor(8.4, 6.3) : fitFor(7.4, 6.3);
   } else if (S.view === "single"){
     model = buildCigar(currentParams());
     root.add(model.group);
@@ -1165,7 +1197,7 @@ function resize(){
 new ResizeObserver(() => { resize(); rebuildFitOnly(); }).observe(stage);
 function rebuildFitOnly(){
   if (S.view === "single" && model) singleFit();
-  else if (S.view === "plant") fitDist = stage.clientWidth < 640 ? fitFor(8.4, 5.9) : fitFor(7.4, 5.9);
+  else if (S.view === "plant") fitDist = stage.clientWidth < 640 ? fitFor(8.4, 6.3) : fitFor(7.4, 6.3);
   else if (lineup.length){ const maxL = Math.max(...lineup.map(m => m.L)), gap = Math.max(...lineup.map(m => m.R*2)) + .42; fitDist = narrowLineup() ? fitFor(maxL/2 + .35, (lineup.length*gap*1.55/2 + .5)*1.15) : fitFor(maxL/2 + 2.6, (lineup.length*gap/2 + 1.1)*1.2); }
 }
 

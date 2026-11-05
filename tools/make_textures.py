@@ -156,35 +156,36 @@ def foot(name, n, seed):
 
 
 def plant_leaf(name, w, h, seed):
-    """A living tobacco leaf, laid flat: x runs base -> tip, y runs edge -> edge."""
+    """A living tobacco leaf, laid flat: x runs base -> tip, y runs edge -> edge.
+    Reference: light yellow-green, pale midrib, ~9 pairs of curving side veins,
+    puckered (quilted) between the veins."""
     yy, xx = np.mgrid[0:h, 0:w]
-    sx = xx / (w - 1)                       # along the leaf
-    t = (yy / (h - 1)) * 2 - 1              # across, -1..1
+    sx = xx / (w - 1)
+    t = (yy / (h - 1)) * 2 - 1
     at = np.abs(t)
     n = max(w, h)
     big = lambda f0, f1, b, sd: np.asarray(Image.fromarray(((spec(n, f0, f1, b, sd) * 0.15 + 0.5).clip(0, 1) * 255).astype(np.uint8)).resize((w, h))) / 255.0 - 0.5
-    # midrib
-    mw = 0.045 * (1 - 0.75 * sx) + 0.006
+    mw = 0.05 * (1 - 0.8 * sx) + 0.006
     midrib = np.exp(-(t / mw) ** 2)
-    # side veins sweep out from the midrib toward the tip
-    nveins = 10
-    ph = (sx - 0.30 * at ** 0.8) * nveins + big(1, 6, 2, seed) * 0.6
+    nveins = 9
+    ph = (sx - 0.34 * at ** 0.75) * nveins + big(1, 5, 2, seed) * 0.35
     fr = ph - np.floor(ph)
     d = np.minimum(fr, 1 - fr)
-    veins = np.exp(-(d / 0.05) ** 2) * (1 - 0.7 * at) * (at > mw * 0.5)
-    net = (1 - np.abs(big(20, 120, 1.2, seed + 1) * 6)).clip(0, 1) ** 6
-    blister = big(8, 60, 1.6, seed + 2)
-    hgt = midrib * 1.6 + veins * 0.7 + net * 0.15 + blister * 0.6
-    mott = big(2, 14, 2, seed + 3)
-    base = np.array([0.30, 0.46, 0.15])
-    col = base[None, None, :] * (1 + 0.25 * mott[..., None] + 0.08 * blister[..., None])
-    light = np.array([0.66, 0.72, 0.42])
-    col = col * (1 - midrib[..., None] * 0.85) + light * midrib[..., None] * 0.85
-    col = col * (1 - veins[..., None] * 0.35) + light * veins[..., None] * 0.35
-    col *= (1 - 0.1 * net)[..., None]
-    col[..., 0] *= 1 + 0.25 * at ** 3      # a touch of yellow toward the edges
+    veins = np.exp(-(d / 0.045) ** 2) * (1 - 0.75 * at) * (at > mw * 0.5)
+    # quilting: the blade puffs up between side veins
+    quilt = np.sin(np.pi * fr) ** 2 * (1 - at ** 2) * (at > mw)
+    net = (1 - np.abs(big(25, 140, 1.2, seed + 1) * 6)).clip(0, 1) ** 8
+    hgt = midrib * 1.4 + veins * 0.55 - quilt * 0.0 + quilt * 0.45 + net * 0.08 + big(10, 60, 1.6, seed + 2) * 0.25
+    mott = big(2, 12, 2, seed + 3)
+    base = np.array([0.50, 0.66, 0.22])              # light yellow-green
+    col = base[None, None, :] * (1 + 0.12 * mott[..., None])
+    col *= (0.88 + 0.16 * quilt)[..., None]          # puffed areas catch more light
+    pale = np.array([0.80, 0.86, 0.60])
+    col = col * (1 - midrib[..., None] * 0.9) + pale * midrib[..., None] * 0.9
+    col = col * (1 - veins[..., None] * 0.45) + pale * veins[..., None] * 0.45
+    col *= (1 - 0.05 * net)[..., None]
     save(np.clip(col, 0, 1), f"{name}_albedo.jpg", 88)
-    save(normal_map(hgt * 2.5, 2.2), f"{name}_normal.jpg", 88)
+    save(normal_map(hgt * 2.5, 1.6), f"{name}_normal.jpg", 88)
 
 
 if __name__ == "__main__":
