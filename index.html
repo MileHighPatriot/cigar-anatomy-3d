@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cigar Anatomy 3D</title>
+<meta name="description" content="A 3D cigar you can spin, pull apart, and rebuild: sizes, shapes, wrappers, and countries of origin.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#14100d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314100d'/%3E%3Crect x='8' y='27' width='44' height='10' rx='5' fill='%238a5534'/%3E%3Crect x='38' y='26' width='6' height='12' fill='%23e3a548'/%3E%3Ccircle cx='8.5' cy='32' r='4' fill='%23cf7a40'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#14100d; --bg2:#1b1512; --surface:#231b17; --surface2:#2d231d; --line:#43352b;
+  --text:#f3e9d8; --muted:#bcab94; --amber:#e3a548; --copper:#cf7a40; --leather:#8a5632;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:14px; --panel-w:400px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.45 var(--sans);-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:1fr var(--panel-w);grid-template-rows:auto 1fr;height:100dvh;overflow:hidden}
+.top{grid-column:1 / -1;display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#1d1612,#16110e)}
+.brand{display:flex;flex-direction:column;line-height:1.1;margin-right:auto;min-width:0}
+.brand h1{margin:0;font:600 1.3rem/1.1 var(--serif);letter-spacing:.01em;background:linear-gradient(100deg,#f6d38c,#e3a548 40%,#b77a2a 60%,#f2c977);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand small{color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:999px;color:var(--muted);font-weight:600;font-size:.88rem;min-height:36px}
+.seg button[aria-pressed="true"]{background:var(--amber);color:#21160d}
+.toplink{color:var(--muted);font-size:.85rem;text-decoration:none;border:1px solid var(--line);padding:7px 12px;border-radius:999px;white-space:nowrap}
+.toplink:hover{color:var(--text);border-color:var(--leather)}
+
+/* ---------- stage ---------- */
+.stage{position:relative;overflow:hidden;min-height:0;
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 42%,rgba(120,92,70,.32),transparent 72%),
+    linear-gradient(180deg,#2a221d 0%,#1b1612 55%,#110d0a 100%)}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 120% 100% at 50% 50%,transparent 55%,rgba(0,0,0,.45))}
+.smoke{position:absolute;inset:-20%;pointer-events:none;filter:blur(40px);opacity:.35}
+.smoke i{position:absolute;width:40%;height:30%;border-radius:50%;background:radial-gradient(closest-side,rgba(230,215,195,.10),transparent);animation:drift 26s ease-in-out infinite alternate}
+.smoke i:nth-child(2){left:50%;top:20%;animation-duration:34s;animation-delay:-8s}
+.smoke i:nth-child(3){left:20%;top:55%;animation-duration:30s;animation-delay:-15s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(18%,-12%) scale(1.3)}}
+@media (prefers-reduced-motion:reduce){.smoke i{animation:none}}
+canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;outline:none}
+canvas#c.dragging{cursor:grabbing}
+canvas#c.hovering{cursor:pointer}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;opacity:0;white-space:nowrap;font-size:.78rem;font-weight:600;color:#fbefd9;
+  background:rgba(20,14,10,.78);border:1px solid rgba(227,165,72,.45);border-radius:999px;padding:3px 10px 3px 8px;
+  display:flex;align-items:center;gap:6px;transition:opacity .25s;will-change:transform;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot,var(--amber));box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.lbl.lineup{background:none;border:0;box-shadow:none;font:600 .95rem var(--serif);color:var(--text);padding:0}
+.lbl.lineup::before{display:none}
+@media (max-width:639px){.lbl.lineup{font-size:.82rem}}
+.lbl.lineup span{color:var(--muted);font:500 .8rem var(--sans);margin-left:8px}
+.lbl.lineup.sel{color:var(--amber)}
+.lbl.lineup.sel::after{content:"●";font-size:.6rem;margin-left:8px;color:var(--amber)}
+
+.hud{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.hud > *{pointer-events:auto}
+.title-card{background:rgba(20,14,10,.72);border:1px solid var(--line);border-radius:12px;padding:8px 12px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);max-width:min(380px,60%)}
+.title-card b{display:block;font:600 1.05rem var(--serif);color:var(--text)}
+.title-card span{color:var(--muted);font-size:.8rem}
+.tools{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:60%}
+.ibtn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 11px;border-radius:10px;border:1px solid var(--line);background:rgba(28,21,17,.82);color:var(--text);font-size:.82rem;font-weight:600;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.ibtn:hover{border-color:var(--leather)}
+.ibtn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.ibtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.hint{position:absolute;left:50%;top:64px;transform:translateX(-50%);background:rgba(20,14,10,.8);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.8rem;color:var(--muted);pointer-events:none;transition:opacity .6s;white-space:nowrap}
+
+.loading{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;color:var(--muted);font:500 .95rem var(--serif);background:radial-gradient(ellipse at center,rgba(34,25,19,.6),rgba(18,13,10,.95));transition:opacity .6s;z-index:3}
+.loading span{width:34px;height:34px;border-radius:50%;border:3px solid rgba(227,165,72,.25);border-top-color:var(--amber);animation:spin 1s linear infinite}
+.loading.done{opacity:0;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* explode dock */
+.dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(720px,calc(100% - 24px));
+  background:rgba(22,16,12,.86);border:1px solid var(--line);border-radius:16px;padding:10px 14px 8px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 14px 34px rgba(0,0,0,.45)}
+.dock-row{display:flex;align-items:center;gap:12px}
+.dock .play{flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:1px solid var(--amber);background:rgba(227,165,72,.12);color:var(--amber);display:grid;place-items:center}
+.dock .play svg{width:18px;height:18px;fill:currentColor}
+.dock-mid{flex:1;min-width:0}
+.dock-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+.dock-top b{font:600 .98rem var(--serif)}
+.dock-top span{font-size:.78rem;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:linear-gradient(90deg,var(--amber) 0 var(--fill,0%),#3a2d24 var(--fill,0%))}
+input[type=range]::-moz-range-track{height:8px;border-radius:999px;background:#3a2d24}
+input[type=range]::-moz-range-progress{height:8px;border-radius:999px;background:var(--amber)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe2a6,#d89a3c 60%,#9a6420);border:2px solid #1b130e;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe2a6,#d89a3c 60%,#9a6420);border:2px solid #1b130e}
+.ticks{display:flex;justify-content:space-between;margin:0 -4px}
+.ticks button{border:0;background:none;color:var(--muted);font-size:.72rem;padding:4px;min-height:28px;flex:1;text-align:center}
+.ticks button:first-child{text-align:left}.ticks button:last-child{text-align:right}
+.ticks button.on{color:var(--amber);font-weight:700}
+.dock.off{display:none}
+
+/* info card */
+.info{position:absolute;left:12px;bottom:118px;width:min(340px,calc(100% - 24px));background:rgba(24,18,14,.94);border:1px solid var(--leather);border-radius:14px;padding:12px 14px;box-shadow:0 16px 40px rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.info[hidden]{display:none}
+.info h3{margin:0 28px 4px 0;font:600 1.1rem var(--serif);color:var(--amber)}
+.info p{margin:.35em 0;font-size:.88rem;color:#e7dccb}
+.info .x{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.info .ctx{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:.84rem;color:var(--muted)}
+.info .ctx b{color:var(--text)}
+
+/* ---------- panel ---------- */
+.panel{border-left:1px solid var(--line);background:var(--bg2);display:flex;flex-direction:column;min-height:0}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);background:var(--bg2);position:sticky;top:0;z-index:2}
+.tabs button{border:0;background:none;padding:12px 4px;color:var(--muted);font-weight:700;font-size:.86rem;border-bottom:2px solid transparent;min-height:46px}
+.tabs button[aria-selected="true"]{color:var(--amber);border-bottom-color:var(--amber)}
+.pane{overflow:auto;padding:14px 16px 28px;flex:1;min-height:0;-webkit-overflow-scrolling:touch}
+.pane[hidden]{display:none}
+.pane h2{font:600 1.15rem var(--serif);margin:4px 0 8px}
+.pane h4{font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.pane p{margin:.4em 0;color:#e2d6c4;font-size:.9rem}
+.muted{color:var(--muted)!important}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.84rem;font-weight:600;min-height:34px;color:var(--text);display:inline-flex;align-items:center;gap:7px}
+.chip[aria-pressed="true"]{border-color:var(--amber);background:rgba(227,165,72,.14);color:var(--amber)}
+.chip .dot{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 10px;text-align:left;display:flex;gap:10px;align-items:center;min-height:52px}
+.opt:hover{border-color:var(--leather)}
+.opt[aria-pressed="true"]{border-color:var(--amber);background:linear-gradient(180deg,rgba(227,165,72,.14),rgba(227,165,72,.05))}
+.opt b{display:block;font-size:.88rem}
+.opt small{display:block;color:var(--muted);font-size:.76rem}
+.opt .sw{flex:0 0 auto;width:30px;height:30px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15),inset 0 -8px 12px rgba(0,0,0,.25)}
+.mini-cig{flex:0 0 auto;width:44px;height:24px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin:10px 0}
+.card.hi{border-color:rgba(227,165,72,.5);background:linear-gradient(180deg,rgba(227,165,72,.09),rgba(227,165,72,.02)),var(--surface)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.88rem}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:600}
+.slider-row{display:grid;grid-template-columns:96px 1fr 64px;gap:10px;align-items:center;margin:6px 0}
+.slider-row label{font-size:.85rem;color:var(--muted)}
+.slider-row output{font-weight:700;text-align:right;font-size:.88rem}
+.src{font-size:.74rem;color:var(--muted);margin-top:6px}
+.badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid var(--amber);color:var(--amber);vertical-align:middle}
+.passport{display:grid;gap:6px;margin:8px 0}
+.pp{display:grid;grid-template-columns:22px 70px 1fr;align-items:center;gap:8px;font-size:.88rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.pp i{width:14px;height:14px;border-radius:4px;display:block}
+.pp em{font-style:normal;color:var(--muted);font-size:.8rem}
+select.sel{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-height:42px}
+.list{list-style:none;margin:6px 0;padding:0;display:grid;gap:4px}
+.list li{display:flex;justify-content:space-between;gap:10px;font-size:.86rem;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:9px}
+.list li span{color:var(--muted);font-size:.78rem;white-space:nowrap}
+.parts{display:grid;gap:6px}
+.part-btn{display:grid;grid-template-columns:14px 1fr;gap:4px 10px;align-items:start;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px}
+.part-btn i{width:14px;height:14px;border-radius:50%;margin-top:3px}
+.part-btn b{font-size:.92rem}
+.part-btn small{grid-column:2;color:var(--muted);font-size:.8rem}
+.part-btn[aria-pressed="true"]{border-color:var(--amber)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--muted);margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%}
+
+/* ---------- small screens: canvas on top, panel below ---------- */
+@media (max-width:899px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,58fr) minmax(0,42fr)}
+  .top{padding:8px 12px;gap:8px}
+  .brand h1{font-size:1.1rem}
+  .brand small{display:none}
+  .toplink{display:none}
+  .seg button{padding:6px 11px;font-size:.82rem}
+  .panel{border-left:0;border-top:1px solid var(--line)}
+  .title-card{max-width:52%;padding:6px 10px}
+  .title-card b{font-size:.95rem}
+  .tools{max-width:48%}
+  .ibtn .t{display:none}
+  .ibtn{padding:6px 9px}
+  .dock{bottom:8px;padding:8px 10px 4px;border-radius:14px}
+  .dock .play{width:38px;height:38px}
+  .ticks button{font-size:.66rem;padding:3px 1px}
+  .info{bottom:auto;top:62px;left:8px;width:calc(100% - 16px)}
+  .hint .wide{display:none}
+  .hint{top:auto;bottom:auto;top:70px;font-size:.72rem;white-space:normal;text-align:center;width:max-content;max-width:86%}
+  .lbl{font-size:.7rem;padding:2px 8px 2px 6px}
+}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Cigar Anatomy</h1>
+      <small>Spin it, pull it apart, and build a different cigar</small>
+    </div>
+    <div class="seg" role="group" aria-label="View">
+      <button type="button" data-view="single" aria-pressed="true">Cigar</button>
+      <button type="button" data-view="lineup" aria-pressed="false">Line-up</button>
+      <button type="button" data-view="plant" aria-pressed="false">Plant</button>
+    </div>
+    <a class="toplink" href="https://milehighpatriot.github.io/cigar-lounge-mastery/" target="_blank" rel="noopener">Study guide ↗</a>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="smoke" aria-hidden="true"><i></i><i></i><i></i></div>
+    <canvas id="c" tabindex="0" aria-label="3D cigar. Drag to spin in any direction, scroll or pinch to zoom, arrow keys also spin."></canvas>
+    <div class="labels" id="labels" aria-hidden="true"></div>
+    <div class="loading" id="loading"><span></span>Curing the leaf…</div>
+    <div class="hud">
+      <div class="title-card" id="titleCard"><b>Robusto</b><span>5 × 50</span></div>
+      <div class="tools">
+        <button class="ibtn" type="button" id="btnSpin" aria-pressed="false" title="Spin on its own"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t">Auto-spin</span></button>
+        <button class="ibtn" type="button" id="btnLabels" aria-pressed="true" title="Show part labels"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="t">Labels</span></button>
+        <button class="ibtn" type="button" id="btnMeasure" aria-pressed="true" title="Show length and ring gauge"><svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21Z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/></svg><span class="t">Measure</span></button>
+        <button class="ibtn" type="button" id="btnReset" title="Reset the view"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span class="t">Reset</span></button>
+      </div>
+    </div>
+    <div class="hint" id="hint">Drag to spin any direction · <span class="wide">scroll or </span>pinch to zoom · tap a part</div>
+
+    <section class="info" id="info" hidden aria-live="polite">
+      <button class="x" type="button" id="infoClose" aria-label="Close">✕</button>
+      <h3 id="infoTitle"></h3>
+      <div id="infoBody"></div>
+    </section>
+
+    <div class="dock" id="dock">
+      <div class="dock-row">
+        <button class="play" type="button" id="btnPlay" aria-label="Pull apart"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg></button>
+        <div class="dock-mid">
+          <div class="dock-top"><b id="stageName">Whole cigar</b><span id="stageHint">Slide right to pull it apart</span></div>
+          <input type="range" id="explode" min="0" max="1000" value="0" aria-label="Pull the cigar apart">
+          <div class="ticks" id="ticks"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel" aria-label="Controls">
+    <div class="tabs" role="tablist">
+      <button role="tab" type="button" data-tab="size" aria-selected="true">Size</button>
+      <button role="tab" type="button" data-tab="wrapper" aria-selected="false">Wrapper</button>
+      <button role="tab" type="button" data-tab="origin" aria-selected="false">Origin</button>
+      <button role="tab" type="button" data-tab="parts" aria-selected="false">Parts</button>
+    </div>
+    <div class="pane" id="pane-size" role="tabpanel"></div>
+    <div class="pane" id="pane-wrapper" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-origin" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-parts" role="tabpanel" hidden></div>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { HDRLoader } from './vendor/HDRLoader.js';
+
+/* =====================================================================
+   DATA. Wording comes from the Cigar Lounge Mastery study guide unless
+   an entry says src:"typical" (a common size the guide does not list).
+   ===================================================================== */
+const VITOLAS = [
+  {id:"petit-corona",name:"Petit Corona",fam:"Parejo",len:4.5,rg:42,head:"round",time:"30–40 min",note:"Short, classic, good for a quick smoke"},
+  {id:"corona",name:"Corona",fam:"Parejo",len:5.5,rg:42,head:"round",time:"40–50 min",note:"Traditional medium size"},
+  {id:"panatela",name:"Panatela",fam:"Parejo",len:6,rg:38,head:"round",time:"30–45 min",note:"Slim, elegant, can run hot"},
+  {id:"lancero",name:"Lancero",fam:"Parejo",len:7.5,rg:38,head:"round",time:"45–60 min",note:"Very thin; concentrated flavor"},
+  {id:"robusto",name:"Robusto",fam:"Parejo",len:5,rg:50,head:"round",time:"45–60 min",note:"Best seller; best default for a new smoker"},
+  {id:"toro",name:"Toro",fam:"Parejo",len:6,rg:50,head:"round",time:"60–90 min",note:"Robusto girth with more length"},
+  {id:"churchill",name:"Churchill",fam:"Parejo",len:7,rg:47,head:"round",time:"75–100 min",note:"Long and cool-burning"},
+  {id:"gordo",name:"Gordo / Gigante",fam:"Parejo",len:6,rg:60,head:"round",time:"90–120 min",note:"Wide and mellow; for a long sit"},
+  {id:"torpedo",name:"Torpedo",fam:"Figurado",len:6.125,rg:52,head:"torpedo",time:"60–90 min",note:"Pointed head, focused draw"},
+  {id:"pyramid",name:"Pyramid",fam:"Figurado",len:6.125,rg:52,head:"pyramid",time:"",note:"Pointed tip, wider base",src:"typical"},
+  {id:"belicoso",name:"Belicoso",fam:"Figurado",len:5,rg:52,head:"belicoso",time:"",note:"Robusto-length, rounded taper",src:"typical"},
+  {id:"perfecto",name:"Perfecto",fam:"Figurado",len:5,rg:48,head:"perfecto",time:"",note:"Tapered at both ends",src:"typical"}
+];
+const HEADS = [
+  {id:"round",name:"Round",fam:"Parejo"},{id:"torpedo",name:"Torpedo",fam:"Figurado"},
+  {id:"belicoso",name:"Belicoso",fam:"Figurado"},{id:"pyramid",name:"Pyramid",fam:"Figurado"},
+  {id:"perfecto",name:"Perfecto",fam:"Figurado"}
+];
+
+const WRAPPERS = [
+  {id:"candela",name:"Candela",shade:"Light",hex:"#66733a",rough:.72,grown:"A curing style, not a place",what:"Sun-cured and green",flavor:"Mild and grassy"},
+  {id:"ct-shade",name:"Connecticut Shade",shade:"Light",hex:"#c39563",rough:.62,grown:"Connecticut River Valley, USA",what:"Shade-grown in the Connecticut River Valley",flavor:"Light, creamy, silky; the classic mild wrapper"},
+  {id:"ec-ct",name:"Ecuador Connecticut",shade:"Light",hex:"#b88752",rough:.62,grown:"Ecuador",what:"Connecticut-seed leaf grown in Ecuador",flavor:"Similar to Connecticut Shade, often a bit richer"},
+  {id:"cameroon",name:"Cameroon",shade:"Medium",hex:"#7c5030",rough:.84,tooth:true,grown:"Cameroon, West Africa",what:"West African leaf",flavor:"Sweet, nutty, light spice; toothy texture"},
+  {id:"sumatra",name:"Sumatra",shade:"Medium",hex:"#71492b",rough:.7,grown:"Sumatra, Indonesia",what:"Leaf grown on Sumatra in Indonesia",flavor:"Medium-bodied, earthy, slightly sweet"},
+  {id:"colorado",name:"Colorado",shade:"Medium",hex:"#8d5a35",rough:.66,grown:"A color shade, not a place",what:"Medium brown shades between Claro and Maduro",flavor:"Balanced and mellow"},
+  {id:"habano",name:"Habano",shade:"Medium",hex:"#7e4a2e",rough:.64,grown:"Ecuador or Nicaragua (Cuban seed)",what:"Cuban-seed leaf, often grown in Ecuador",flavor:"Reddish-brown, spicy, earthy; medium to full"},
+  {id:"criollo",name:"Criollo",shade:"Medium",hex:"#82532f",rough:.68,grown:"Several countries (Cuban-origin seed)",what:"Cuban-origin seed, grown in several countries",flavor:"Aromatic, lightly sweet, earthy"},
+  {id:"corojo",name:"Corojo",shade:"Medium",hex:"#784428",rough:.66,grown:"Now grown outside Cuba (original Cuban variety)",what:"Original Cuban variety; now grown elsewhere",flavor:"Bold, peppery, leathery and woody finish"},
+  {id:"rosado",name:"Rosado",shade:"Medium",hex:"#8e4a32",rough:.64,grown:"A color, not a place",what:"Reddish-brown color (“rosé”)",flavor:"Medium, spicy, slightly sweet"},
+  {id:"mata-fina",name:"Brazilian Mata Fina",shade:"Dark",hex:"#4c2f1c",rough:.6,grown:"Brazil",what:"Grown in Brazil, often used as binder or maduro wrapper",flavor:"Sweet, earthy, with some tang"},
+  {id:"san-andres",name:"Mexican San Andrés",shade:"Dark",hex:"#3f281a",rough:.58,grown:"San Andrés valley, Mexico",what:"Dark leaf from the San Andrés valley",flavor:"Sweet, earthy, often maduro"},
+  {id:"broadleaf",name:"Connecticut Broadleaf",shade:"Dark",hex:"#352213",rough:.5,grown:"Connecticut, USA (sun-grown)",what:"Sun-grown, thick leaf; used for Maduro",flavor:"Dark, oily, sweet and earthy"},
+  {id:"maduro",name:"Maduro",shade:"Dark",hex:"#3a2415",rough:.52,grown:"A color and process, not a country",what:"Extra fermentation darkens the leaf",flavor:"Dark, rich, sweeter"},
+  {id:"oscuro",name:"Oscuro",shade:"Dark",hex:"#21150c",rough:.5,grown:"A color, not a place",what:"The darkest, heaviest shade",flavor:"Coffee and dark chocolate notes"}
+];
+
+const BINDERS = [
+  {id:"broadleaf",name:"Connecticut Broadleaf",country:"USA",hex:"#3d2716"},
+  {id:"nicaragua",name:"Nicaraguan",country:"Nicaragua",hex:"#7a4e2c"},
+  {id:"honduras",name:"Honduran",country:"Honduras",hex:"#6d4628"},
+  {id:"mexico",name:"Mexican",country:"Mexico",hex:"#5a3a22"}
+];
+
+const COUNTRIES = [
+  {id:"Cuba",known:"The original; all Cuban cigars are made for Habanos S.A.",profile:"Complex, earthy, spicy; not legally sold in the US",band:["#7a1420","#d8b25a","#f5e6c4"]},
+  {id:"Dominican Republic",known:"The largest premium producer; Fuente, Davidoff, Diamond Crown",profile:"Smooth, balanced, cedar and cream; often mild to medium",band:["#1c2c55","#d8b25a","#f5e6c4"]},
+  {id:"Nicaragua",known:"Volcanic soil and bold tobacco; Padrón, Oliva, Drew Estate",profile:"Rich, peppery, full-bodied; the fastest-growing origin",band:["#14406e","#e1bd62","#f7f1e3"]},
+  {id:"Honduras",known:"Cuban-seed tobacco in the Jamastrán and Danlí valleys; Camacho, Alec Bradley",profile:"Robust, spicy, often medium to full",band:["#0f4a4a","#d8b25a","#f5ecd8"]}
+];
+
+const TOP50 = [
+["Arturo Fuente Hemingway Short Story","Dominican Republic","Medium"],["Arturo Fuente Don Carlos","Dominican Republic","Medium"],["Arturo Fuente OpusX","Dominican Republic","Full"],["Ashton VSG","Dominican Republic","Full"],["Davidoff Signature","Dominican Republic","Mild"],["Diamond Crown Maximus","Dominican Republic","Medium-Full"],["Diamond Crown Julius Caeser","Dominican Republic","Medium"],["E.P. Carrillo La Historia","Dominican Republic","Medium-Full"],["La Flor Dominicana Double Ligero","Dominican Republic","Full"],["Macanudo Café","Dominican Republic","Mild"],["Montecristo White","Dominican Republic","Mild"],["Romeo y Julieta 1875","Dominican Republic","Medium"],["Cohiba Red Dot","Dominican Republic","Medium"],["Partagás Serie D No. 4","Dominican Republic","Medium-Full"],
+["Davidoff Nicaragua","Nicaragua","Medium-Full"],["Padrón 1964 Anniversary","Nicaragua","Medium-Full"],["Padrón 1926 Serie","Nicaragua","Medium-Full"],["Padrón Damaso","Nicaragua","Medium"],["Oliva Connecticut Reserve","Nicaragua","Mild"],["Oliva Serie V Melanio","Nicaragua","Medium-Full"],["Oliva Serie G","Nicaragua","Medium"],["Nub Connecticut","Nicaragua","Mild-Medium"],["My Father Le Bijou 1922","Nicaragua","Full"],["My Father Flor de las Antillas","Nicaragua","Medium-Full"],["Liga Privada No. 9","Nicaragua","Full"],["Liga Privada T52","Nicaragua","Full"],["Undercrown Maduro","Nicaragua","Medium-Full"],["Nica Rustica","Nicaragua","Medium-Full"],["Acid Kuba Kuba","Nicaragua","Mild-Medium"],["Herrera Estelí","Nicaragua","Medium-Full"],["Tatuaje Havana VI","Nicaragua","Medium-Full"],["Foundation The Tabernacle","Nicaragua","Medium-Full"],["Perdomo Reserve Champagne","Nicaragua","Mild-Medium"],["Perdomo 20th Anniversary","Nicaragua","Medium"],["Joya de Nicaragua Antaño 1970","Nicaragua","Full"],["AJ Fernandez New World","Nicaragua","Medium"],["CAO Flathead","Nicaragua","Full"],["Brick House","Nicaragua","Medium"],
+["Camacho Triple Maduro","Honduras","Full"],["Camacho Corojo","Honduras","Full"],["Alec Bradley Prensado","Honduras","Medium-Full"],["Alec Bradley Black Market","Honduras","Full"],["Rocky Patel Vintage 1999","Honduras / Nicaragua","Medium"],["Punch Rothschild","Honduras","Medium"],
+["Cohiba Siglo VI","Cuba","Medium-Full"],["Montecristo No. 2","Cuba","Medium-Full"],["Romeo y Julieta Churchill","Cuba","Medium"],["Bolívar Belicosos Finos","Cuba","Full"],["H. Upmann Magnum 50","Cuba","Medium"],["Trinidad Fundadores","Cuba","Medium"]
+];
+
+const PRIMINGS = {
+  ligero:{name:"Ligero",hex:"#4a2a16",text:"Top leaves, the strongest and slowest to burn; adds power to a blend."},
+  viso:{name:"Viso",hex:"#6e4224",text:"Upper-middle leaves, richer and stronger."},
+  seco:{name:"Seco",hex:"#946338",text:"Middle leaves, balanced flavor and aroma."},
+  volado:{name:"Volado",hex:"#b8895a",text:"Bottom leaves, mild, burns well; used for even combustion."}
+};
+
+const PARTS = {
+  cap:{name:"Cap",color:"#e3a548",stage:.25,text:["A small round of wrapper leaf glued over the head to seal it. Many premium cigars use a triple cap.","Cut about 1/16 to 1/8 inch above the shoulder of the cap. Too deep and the wrapper unravels."]},
+  band:{name:"Band",color:"#d8b25a",stage:.25,text:["The paper ring with the maker's mark. The band on this model shows the size and the country it was rolled in."]},
+  wrapper:{name:"Wrapper",color:"#cf7a40",stage:.5,text:["The outer leaf: the biggest contributor to visible flavor and color.","A wrapper is the most expensive leaf in the cigar and is chosen for looks as much as taste."]},
+  binder:{name:"Binder",color:"#a77a52",stage:.75,text:["Holds the filler together and affects how the cigar burns.","Common binder tobaccos include Connecticut Broadleaf, Nicaraguan, Honduran, and Mexican."]},
+  filler:{name:"Filler",color:"#946338",stage:1,text:["Inner tobacco leaves; drives most of the flavor. A blend of leaves from different priming positions, ages, and farms.","Premium cigars use long filler: whole leaves that run the cigar's length, folded accordion-style so air can flow."]},
+  foot:{name:"Foot",color:"#ef8b6a",stage:0,text:["The end you light. Hold the foot an inch from the flame and rotate it to toast the edge evenly."]},
+  head:{name:"Head",color:"#e3a548",stage:0,text:["The end you smoke from, closed by the cap. The shoulder is where the head starts to curve."]}
+};
+const STAGES = [
+  {at:0,name:"Whole cigar",hint:"Slide right to pull it apart"},
+  {at:.25,name:"Band & cap off",hint:"The cap seals the head"},
+  {at:.5,name:"Wrapper opened",hint:"The outer leaf, split in two"},
+  {at:.75,name:"Binder opened",hint:"The leaf that holds the filler"},
+  {at:1,name:"Filler fanned out",hint:"Long filler, by leaf position"}
+];
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const KEY = "cigar3d.v1";
+const defaults = {view:"single",vitola:"robusto",L:5,rg:50,head:"round",press:0,wrapper:"habano",binder:"nicaragua",filler:"Nicaragua",madeIn:"Nicaragua",labels:true,measure:true,shadeFilter:"All",famFilter:"All",tab:"size"};
+const S = Object.assign({}, defaults);
+try{ Object.assign(S, JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){}
+const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} };
+let explode = 0, explodeTarget = null, tween = null;
+
+const $ = s => document.querySelector(s);
+const wrapperById = id => WRAPPERS.find(w => w.id === id) || WRAPPERS[0];
+const binderById = id => BINDERS.find(b => b.id === id) || BINDERS[0];
+const vitolaById = id => VITOLAS.find(v => v.id === id);
+const fmtIn = n => { const w = Math.floor(n + 1e-6), f = n - w; const fr = [[0,""],[.125,"⅛"],[.25,"¼"],[.375,"⅜"],[.5,"½"],[.625,"⅝"],[.75,"¾"],[.875,"⅞"]]; let best = fr[0], d = 9; for (const x of fr){ const dd = Math.abs(f - x[0]); if (dd < d){ d = dd; best = x; } } if (Math.abs(f-1) < d) return String(w+1); return (w ? w : (best[1] ? "" : "0")) + best[1]; };
+const clamp = (x,a=0,b=1) => Math.min(b, Math.max(a, x));
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+const TAU = Math.PI * 2;
+const smooth01 = t => { t = clamp(t); return t*t*(3 - 2*t); };
+
+/* =====================================================================
+   THREE SETUP: photo-studio lighting
+   ===================================================================== */
+const canvas = $("#c"), stage = $("#stage"), labelsEl = $("#labels");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true, powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.NeutralToneMapping; // keeps the browns true to life
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(24, 1, .1, 400);
+camera.position.set(0, 0, 14);
+
+const manager = new THREE.LoadingManager();
+let firstLoad = true;
+manager.onLoad = () => { if (firstLoad){ firstLoad = false; $("#loading").classList.add("done"); } };
+manager.onError = () => { $("#loading").classList.add("done"); };
+
+// a real photo studio (Poly Haven, CC0) lights the leaf and the gold foil
+const pmrem = new THREE.PMREMGenerator(renderer);
+new HDRLoader(manager).load("assets/studio.hdr", t => { scene.environment = pmrem.fromEquirectangular(t).texture; t.dispose(); });
+scene.environmentIntensity = .7;
+scene.environmentRotation.set(0, 2.2, 0);
+
+// one soft key light from above casts the shadow under the cigar
+const key = new THREE.DirectionalLight(0xfff0dc, 1.7);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 18; key.shadow.blurSamples = 24; key.shadow.bias = -.0005;
+Object.assign(key.shadow.camera, {left:-10, right:10, top:10, bottom:-10, near:.5, far:40});
+scene.add(key, key.target);
+const KEY_OFF = new THREE.Vector3(-2.5, 12, 4);
+const rim = new THREE.DirectionalLight(0xffd3a0, .9); rim.position.set(3, 4, -9); scene.add(rim);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.ShadowMaterial({opacity:.5}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; ground.position.y = -3; scene.add(ground);
+
+const root = new THREE.Group(); scene.add(root);
+const HOME = new THREE.Quaternion().setFromEuler(new THREE.Euler(.42, -.38, .06, "XYZ"));
+const LINEUP_HOME = new THREE.Quaternion().setFromEuler(new THREE.Euler(.22, -.18, 0, "XYZ"));
+const PLANT_HOME = new THREE.Quaternion().setFromEuler(new THREE.Euler(.1, -.15, 0, "XYZ"));
+const homeFor = v => v === "lineup" ? LINEUP_HOME : v === "plant" ? PLANT_HOME : HOME;
+root.quaternion.copy(HOME);
+
+/* ---------- textures (made by tools/make_textures.py) ---------- */
+const texLoader = new THREE.TextureLoader(manager);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+const T = {};
+function tex(name, srgb){
+  if (T[name]) return T[name];
+  const t = texLoader.load("assets/tex/" + name);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return T[name] = t;
+}
+const leafSet = kind => ({
+  map:tex(kind + "_albedo.jpg", true),
+  normalMap:tex(kind + "_normal.jpg"),
+  roughnessMap:tex((kind === "tooth" ? "wrapper" : kind) + "_rough.jpg")
+});
+const texCache = new Map();
+const C = h => new THREE.Color(h);
+
+function addSeam(mat){
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute float aSeam;\nvarying float vSeam;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSeam = aSeam;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vSeam;")
+      .replace("#include <map_fragment>", `#include <map_fragment>
+      {
+        float s = fract(vSeam);
+        float w = max(fwidth(vSeam) * 1.2, 0.0035);
+        float shadowLine = exp(-pow((1.0 - s) / (w * 3.5), 2.0)) + 0.6 * exp(-pow((1.0 - s) / (w * 10.0), 2.0));
+        float edge = exp(-pow(s / (w * 1.6), 2.0));
+        diffuseColor.rgb *= 1.0 - 0.34 * clamp(shadowLine, 0.0, 1.0);
+        diffuseColor.rgb += edge * 0.07 * vec3(1.0, 0.85, 0.65);
+      }`);
+  };
+  mat.customProgramCacheKey = () => "leafSeam";
+  return mat;
+}
+function leafMats(hex, kind, o = {}){
+  const col = C(hex);
+  const set = leafSet(kind);
+  const outer = new THREE.MeshPhysicalMaterial({
+    ...set, color:col, vertexColors:true, side:THREE.FrontSide,
+    roughness:(o.rough ?? .7)/.74, metalness:0,
+    normalScale:new THREE.Vector2(o.normal ?? 1, o.normal ?? 1),
+    sheen:o.sheen ?? .3, sheenRoughness:.6, sheenColor:col.clone().lerp(C("#f0c890"), .3),
+    clearcoat:o.coat ?? .06, clearcoatRoughness:.55,
+    emissive:C(0)
+  });
+  // the back of a leaf is paler and more matte, with the veins standing out more
+  const inner = outer.clone();
+  inner.side = THREE.BackSide; inner.color = col.clone().lerp(C("#b08a5e"), .1);
+  inner.roughness = 1.1; inner.clearcoat = 0; inner.sheen = .3;
+  inner.normalScale = new THREE.Vector2(1.6, 1.6);
+  const edge = new THREE.MeshStandardMaterial({color:col.clone().lerp(C("#d9bb8c"), .35), roughness:.9, side:THREE.DoubleSide, emissive:C(0)});
+  return {outer, inner, edge};
+}
+
+/* ---------- the cigar band: printed paper with embossed gold foil ---------- */
+function bandTextures(name, country, ratio = 3.5){
+  ratio = Math.round(clamp(ratio, 2, 8)*4)/4;
+  const k = "band|" + name + "|" + country + "|" + ratio;
+  if (texCache.has(k)) return texCache.get(k);
+  const co = COUNTRIES.find(c => c.id === country) || COUNTRIES[2];
+  const [base, , cream] = co.band;
+  const H = 512, W = Math.round(H*ratio);
+  const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; return c; };
+  const colC = mk(), maskC = mk();
+  const draw = (g, mask) => {
+    const GOLD = mask ? "#fff" : (() => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#f3d58e"); gr.addColorStop(.25, "#c99a3e"); gr.addColorStop(.5, "#f6dc9a"); gr.addColorStop(.75, "#b9862f"); gr.addColorStop(1, "#e9c87a"); return gr; })();
+    const BASE = mask ? "#000" : base, CREAM = mask ? "#555" : cream;
+    g.fillStyle = BASE; g.fillRect(0, 0, W, H);
+    if (!mask){ // printed paper grain
+      for (let i = 0; i < W*H/40; i++){ g.fillStyle = `rgba(${Math.random() < .5 ? "0,0,0" : "255,255,255"},${Math.random()*.05})`; g.fillRect(Math.random()*W, Math.random()*H, 2, 2); }
+    }
+    // foil borders with a bead pattern
+    g.fillStyle = GOLD; g.fillRect(0, 0, W, 58); g.fillRect(0, H - 58, W, 58);
+    g.fillStyle = BASE;
+    for (let x = 0; x < W; x += 30){ for (const y of [29, H - 29]){ g.beginPath(); g.ellipse(x + 15, y, 9, 13, 0, 0, TAU); g.fill(); } }
+    g.fillStyle = GOLD;
+    for (let x = 0; x < W; x += 30){ for (const y of [29, H - 29]){ g.beginPath(); g.ellipse(x + 15, y, 5, 8, 0, 0, TAU); g.fill(); } }
+    g.fillStyle = CREAM; g.fillRect(0, 66, W, 6); g.fillRect(0, H - 72, W, 6);
+    // fine foil filigree along the strip
+    if (!mask){ g.strokeStyle = "rgba(255,255,255,.07)"; g.lineWidth = 1.5;
+      for (let x = -H; x < W + H; x += 9){ g.beginPath(); g.moveTo(x, 80); g.lineTo(x + H - 160, H - 80); g.stroke(); g.beginPath(); g.moveTo(x + H - 160, 80); g.lineTo(x, H - 80); g.stroke(); } }
+    // medallion on the front (u = .25), read with the cigar lying flat, head to the right
+    const cxm = W*.25, cy = H/2;
+    g.fillStyle = BASE; g.beginPath(); g.ellipse(cxm, cy, 150, 205, 0, 0, TAU); g.fill();
+    g.strokeStyle = GOLD; g.lineWidth = 16; g.beginPath(); g.ellipse(cxm, cy, 140, 196, 0, 0, TAU); g.stroke();
+    g.lineWidth = 4; g.beginPath(); g.ellipse(cxm, cy, 118, 172, 0, 0, TAU); g.stroke();
+    for (let i = 0; i < 28; i++){ const a = i/28*TAU; g.fillStyle = GOLD; g.beginPath(); g.arc(cxm + Math.cos(a)*129, cy + Math.sin(a)*184, 4, 0, TAU); g.fill(); }
+    g.save(); g.translate(cxm, cy); g.rotate(-Math.PI/2);
+    g.textAlign = "center"; g.textBaseline = "middle";
+    const nm = name.toUpperCase().split(" /")[0];
+    g.fillStyle = GOLD; g.font = `700 ${nm.length > 9 ? 44 : 58}px Fraunces, Georgia, serif`; g.fillText(nm, 0, -14, 300);
+    g.fillStyle = CREAM; g.font = "700 26px system-ui, sans-serif"; g.fillText(country.toUpperCase(), 0, 42, 280);
+    g.fillStyle = GOLD; g.font = "600 30px Fraunces, Georgia, serif"; g.fillText("✦  HECHO A MANO  ✦", 0, -74, 300);
+    g.restore();
+    // glued overlap at the back
+    g.fillStyle = mask ? "#222" : "rgba(0,0,0,.25)"; g.fillRect(W*.75 - 3, 58, 6, H - 116);
+  };
+  draw(colC.getContext("2d"), false); draw(maskC.getContext("2d"), true);
+  // height -> normal map, mask -> metal/roughness
+  const md = maskC.getContext("2d").getImageData(0, 0, W, H).data;
+  let h = new Float32Array(W*H);
+  for (let i = 0; i < W*H; i++) h[i] = md[i*4]/255;
+  for (let pass = 0; pass < 2; pass++){ const o = new Float32Array(W*H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){ const xx = (x + dx + W) % W, yy = Math.min(H - 1, Math.max(0, y + dy)); s += h[yy*W + xx]; } o[y*W + x] = s/9; } h = o; }
+  const nC = mk(), mrC = mk();
+  const nI = nC.getContext("2d").createImageData(W, H), mI = mrC.getContext("2d").createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){
+    const i = y*W + x, xl = (x - 1 + W) % W, xr = (x + 1) % W, yu = Math.max(0, y - 1), yd = Math.min(H - 1, y + 1);
+    const dx = (h[y*W + xr] - h[y*W + xl])*3, dy = (h[yu*W + x] - h[yd*W + x])*3;
+    const l = Math.hypot(dx, dy, 1);
+    nI.data[i*4] = (-dx/l*.5 + .5)*255; nI.data[i*4+1] = (-dy/l*.5 + .5)*255; nI.data[i*4+2] = (1/l*.5 + .5)*255; nI.data[i*4+3] = 255;
+    const m = md[i*4]/255, metal = m > .9 ? 1 : 0;
+    mI.data[i*4] = 0; mI.data[i*4+1] = (metal ? .28 : .62)*255; mI.data[i*4+2] = metal*255; mI.data[i*4+3] = 255;
+  }
+  nC.getContext("2d").putImageData(nI, 0, 0); mrC.getContext("2d").putImageData(mI, 0, 0);
+  const mkT = (c, srgb) => { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; t.wrapS = THREE.RepeatWrapping; return t; };
+  const out = {map:mkT(colC, true), normalMap:mkT(nC), metalnessMap:mkT(mrC), roughnessMap:mkT(mrC)};
+  texCache.set(k, out);
+  return out;
+}
+
+/* ---------- cigar profile (radius as a fraction of the full radius, along the length) ---------- */
+function shapeFn(head, L, R){
+  const dome = Math.min(R*.95, L*.12);
+  const tip = (u, t) => { if (u < .9){ const a = u/.9; return 1 - (1-t)*(a*a*(3-2*a)); } const v = (u - .9)/.1; return t*Math.sqrt(Math.max(0, 1 - v*v)); };
+  let headLen, f, capStart, footLen = 0;
+  switch (head){
+    case "torpedo": headLen = Math.min(1.6, L*.28); f = u => tip(u, .14); capStart = L - .42; break;
+    case "pyramid": headLen = L*.62; f = u => u < .94 ? 1 - .8*(u/.94) : .2*Math.sqrt(Math.max(0, 1 - ((u-.94)/.06)**2)); capStart = L - .36; break;
+    case "belicoso": headLen = Math.min(1.05, L*.22); f = u => Math.pow(Math.cos(u*Math.PI/2), .55); capStart = L - headLen*.55; break;
+    case "perfecto": headLen = Math.min(1.35, L*.27); f = u => tip(u, .16); capStart = L - .4; footLen = Math.min(1.15, L*.23); break;
+    default: headLen = dome; f = u => Math.sqrt(Math.max(0, 1 - u*u)); capStart = L - dome*.92;
+  }
+  const s = L - headLen;
+  const fn = x => {
+    let r = 1;
+    if (footLen && x < footLen){ const u = x/footLen; r = .4 + .6*Math.sin(u*Math.PI/2); }
+    if (x > s) r = Math.min(r, f(clamp((x - s)/headLen)));
+    return Math.max(0, r);
+  };
+  return {fn, headLen, capStart, footLen, dome};
+}
+
+function samplesX(L, a, b, n){
+  const xs = [];
+  for (let i = 0; i <= n; i++){ const t = i/n; const e = .5 - .5*Math.cos(Math.PI*t); xs.push(a + (b - a)*(.35*t + .65*e)); }
+  return xs;
+}
+
+function pressXY(y, z, press){
+  if (!press) return [y, z];
+  const a = Math.atan2(z, y), n = 4;
+  const k = Math.pow(Math.pow(Math.abs(Math.cos(a)), n) + Math.pow(Math.abs(Math.sin(a)), n), -1/n)*.9;
+  const m = 1 + (k - 1)*press;
+  return [y*m, z*m];
+}
+
+/* Revolve a profile around the cigar's axis (X), facing outward.
+   profile rows: [x, r, f]. disp(phi, x, r) adds to the radius; shade(phi, x) darkens vertex colour. */
+function revolve(profile, {phi0 = 0, phiLen = TAU, seg = 72, press = 0, off = null, uvMode = "leaf", nAround = 1, tile = 1.5, x0 = 0, x1 = 1, disp = null, shade = null, seam = null} = {}){
+  const rows = profile.length, cols = seg + 1;
+  const pos = new Float32Array(rows*cols*3), uv = new Float32Array(rows*cols*2), col = new Float32Array(rows*cols*3);
+  const full = Math.abs(phiLen - TAU) < 1e-6;
+  const sm = seam ? new Float32Array(rows*cols) : null;
+  for (let i = 0; i < rows; i++){
+    const [x, r0, p] = profile[i];
+    for (let j = 0; j < cols; j++){
+      const phi = phi0 + phiLen*j/seg;
+      const r = Math.max(0, r0 + (disp && r0 > 0 ? disp(phi, x, r0, p) : 0));
+      let y = r*Math.cos(phi), z = r*Math.sin(phi);
+      if (off){ y += off[0]*p; z += off[1]*p; }
+      [y, z] = pressXY(y, z, press);
+      const o = i*cols + j;
+      pos[o*3] = x; pos[o*3+1] = y; pos[o*3+2] = z;
+      if (uvMode === "band"){ uv[o*2] = phi/TAU; uv[o*2+1] = (x - x0)/(x1 - x0); }
+      else if (uvMode === "axial"){ uv[o*2] = y/tile*1.6 + x*.35; uv[o*2+1] = z/tile*1.6; }
+      else { uv[o*2] = phi/TAU*nAround; uv[o*2+1] = x/tile; }
+      if (sm) sm[o] = seam(phi, x);
+      const s = shade ? shade(phi, x) : 1;
+      col[o*3] = col[o*3+1] = col[o*3+2] = s;
+    }
+  }
+  const idx = [];
+  for (let i = 0; i < rows - 1; i++) for (let j = 0; j < seg; j++){
+    const a = i*cols + j, b = a + cols, c2 = b + 1, d = a + 1;
+    idx.push(a, d, b, b, d, c2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  if (sm) geo.setAttribute("aSeam", new THREE.BufferAttribute(sm, 1));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  if (full){ // weld the seam normals
+    const nrm = geo.attributes.normal;
+    for (let i = 0; i < rows; i++){
+      const a = i*cols, b = a + seg;
+      const nx = nrm.getX(a) + nrm.getX(b), ny = nrm.getY(a) + nrm.getY(b), nz = nrm.getZ(a) + nrm.getZ(b);
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nrm.setXYZ(a, nx/l, ny/l, nz/l); nrm.setXYZ(b, nx/l, ny/l, nz/l);
+    }
+  }
+  geo.userData = {rows, cols, seg, full};
+  return geo;
+}
+
+/* A leaf with real thickness: outer face, inner face, and the cut edges between them. */
+function leafShell(profile, opt, mats, thick, {edges = true} = {}){
+  const g = new THREE.Group();
+  const outer = revolve(profile, opt);
+  g.add(new THREE.Mesh(outer, mats.outer));
+  if (!mats.inner) return g;
+  const inProf = profile.map(([x, r, p]) => [x, Math.max(0, r - thick), p]);
+  const inner = revolve(inProf, {...opt, seam:null});
+  g.add(new THREE.Mesh(inner, mats.inner));
+  if (!edges) return g;
+  const {rows, cols, seg, full} = outer.userData;
+  const po = outer.attributes.position.array, pi = inner.attributes.position.array;
+  const pos = [], idx = [];
+  const strip = list => {
+    const base = pos.length/3;
+    list.forEach(k => { pos.push(po[k*3], po[k*3+1], po[k*3+2], pi[k*3], pi[k*3+1], pi[k*3+2]); });
+    for (let n = 0; n < list.length - 1; n++){ const a = base + n*2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  };
+  const col = j => Array.from({length:rows}, (_, i) => i*cols + j);
+  const row = i => Array.from({length:cols}, (_, j) => i*cols + j);
+  strip(row(0));
+  if (profile[rows - 1][1] > 1e-4) strip(row(rows - 1));
+  const ringCount = idx.length;
+  if (!full){ strip(col(0)); strip(col(seg)); }
+  const eg = new THREE.BufferGeometry();
+  eg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  eg.setIndex(idx); eg.computeVertexNormals();
+  eg.addGroup(0, ringCount, 0); eg.addGroup(ringCount, idx.length - ringCount, 1);
+  const cutMat = mats.edge.clone(); cutMat.userData.cut = true;
+  const em = new THREE.Mesh(eg, [mats.edge, cutMat]); g.add(em);
+  return g;
+}
+
+/* ---------- build one cigar ---------- */
+function buildCigar(p, opts = {}){
+  const lite = !!opts.lite;
+  const L = p.L, R = p.rg/64/2, sh = shapeFn(p.head, L, R), f = sh.fn;
+  const g = new THREE.Group(), parts = {}, anchors = [], meshes = [], movers = [];
+  const add = (obj, part, extra = {}) => {
+    Object.assign(obj.userData, {part, ...extra});
+    obj.traverse(o => { if (o.isMesh){ Object.assign(o.userData, {part, ...extra}); o.castShadow = true; meshes.push(o); (parts[part] ||= []).push(o); } });
+    g.add(obj); movers.push(obj); return obj;
+  };
+  const W = wrapperById(p.wrapper), B = binderById(p.binder);
+  const cx = -L/2; // centre the cigar on the origin
+  const SEG = lite ? 128 : 360, ROWS = lite ? 90 : 260;
+  const leafT = Math.max(.0045, R*.011);           // leaf thickness
+  const tile = 1.5, nAround = Math.max(1, Math.round(TAU*R/tile));
+  const prof = (k, a, b, n = ROWS, add0 = 0) => samplesX(L, a, b, n).map(x => [x + cx, R*k*f(x) + add0, f(x)]);
+
+  // hand-rolled, so never a perfect tube: a gentle wobble, plus the spiral seam of the wrapper
+  const wob = (phi, x) => .006*Math.sin(2*phi + 1.7*x + 1.3) + .004*Math.sin(3*phi - 2.3*x + .4) + .0025*Math.sin(5*phi + 4.1*x);
+  const pitch = Math.max(1.6, R*4.2);
+  const seamPh = (phi, x) => { const s = phi/TAU + (x - cx)/pitch; return s - Math.floor(s); };
+  const near = x => clamp(f(x - cx)*3);
+  const wrapDisp = (phi, x, r) => near(x)*(R*wob(phi, x) + leafT*1.4*smooth01(seamPh(phi, x)/.06)*(1 - seamPh(phi, x)));
+  const seamU = (phi, x) => phi/TAU + (x - cx)/pitch;
+  const innerDisp = (phi, x) => near(x)*R*wob(phi, x);
+  const wrapShade = (phi, x) => { const s = seamPh(phi, x); void s; return 1 - .05*Math.sin(.9*x + 2*phi); };
+
+  const oily = W.shade === "Dark";
+  const wM = leafMats(W.hex, W.tooth ? "tooth" : "wrapper", {rough:W.rough, sheen:oily ? .2 : .3, coat:oily ? .35 : .12, normal:W.tooth ? 1.4 : .9});
+  addSeam(wM.outer);
+  if (lite) wM.inner = null;
+  const capStart = sh.capStart;
+  const wOpt = {seg:SEG, press:p.press, nAround, tile, disp:wrapDisp, shade:wrapShade, seam:seamU};
+
+  // WRAPPER: two halves so it can open
+  if (lite){
+    add(leafShell(prof(1, 0, capStart + .03), wOpt, wM, leafT), "wrapper");
+  } else {
+    add(leafShell(prof(1, 0, capStart + .03), {...wOpt, phi0:0, phiLen:Math.PI, seg:SEG/2}, wM, leafT), "wrapper", {half:1});
+    add(leafShell(prof(1, 0, capStart + .03), {...wOpt, phi0:Math.PI, phiLen:Math.PI, seg:SEG/2}, wM, leafT), "wrapper", {half:-1});
+  }
+
+  // CAP: a triple cap, three thin rounds of wrapper leaf stacked on the head
+  const capLen = L - capStart, c2 = capStart + capLen*.32, c3 = capStart + capLen*.58;
+  const ss = (a, x) => clamp((x - a)/.012);
+  const capProf = samplesX(L, capStart - .02, L, lite ? 30 : 60).map(x => [x + cx, R*f(x) + leafT*(1.8 + ss(c2, x) + ss(c3, x))*clamp(f(x)*4), f(x)]);
+  capProf.push([L + cx, 0, 0]);
+  const capShade = (phi, x) => { const xx = x - cx; let s = 1; for (const c of [capStart, c2, c3]) s -= .3*Math.exp(-(((xx - c)/.01)**2)); return s; };
+  const cM = leafMats(W.hex, W.tooth ? "tooth" : "wrapper", {rough:W.rough, sheen:oily ? .2 : .3, coat:oily ? .35 : .12, normal:.9});
+  if (lite) cM.inner = null;
+  add(leafShell(capProf, {seg:SEG, press:p.press, nAround, tile, uvMode:"axial", disp:(phi, x) => near(x)*R*wob(phi, x), shade:capShade}, cM, leafT), "cap");
+
+  // BAND: just below the shoulder
+  const bw = Math.min(.78, L*.14);
+  let bandEnd = p.head === "round" ? L - sh.dome - .32 : p.head === "pyramid" ? capStart - .55 : L - sh.headLen - .12;
+  bandEnd = clamp(bandEnd, bw + .3, L - .4);
+  const bandX0 = bandEnd - bw;
+  const bandR = x => R*f(x) + R*.016 + leafT*2.5;
+  const bProf = []; for (let i = 0; i <= 10; i++){ const x = bandX0 + bw*i/10; bProf.push([x + cx, bandR(x), f(x)]); }
+  const bt = bandTextures(p.name || "Custom", p.madeIn, (TAU*bandR(bandX0 + bw/2))/bw);
+  const bandMats = {
+    outer:new THREE.MeshPhysicalMaterial({...bt, color:C("#ffffff"), metalness:1, roughness:1, clearcoat:.06, clearcoatRoughness:.5, side:THREE.FrontSide, emissive:C(0)}),
+    inner:new THREE.MeshStandardMaterial({color:C("#efe4cc"), roughness:.85, side:THREE.BackSide, emissive:C(0)}),
+    edge:new THREE.MeshStandardMaterial({color:C("#f4ead6"), roughness:.8, side:THREE.DoubleSide, emissive:C(0)})
+  };
+  add(leafShell(bProf, {seg:lite ? 96 : 160, press:p.press, uvMode:"band", x0:bandX0 + cx, x1:bandEnd + cx}, bandMats, .006), "band");
+
+  // FOOT: end-on view of the packed filler
+  const footR = R*f(0) - leafT*2.2;
+  {
+    const rings = 20, segs = lite ? 64 : 128, pos = [], uv = [], idx = [];
+    for (let i = 0; i <= rings; i++) for (let j = 0; j <= segs; j++){
+      const rr = footR*i/rings, a = j/segs*TAU;
+      let y = rr*Math.cos(a), z = rr*Math.sin(a); [y, z] = pressXY(y, z, p.press);
+      pos.push(cx - .003, y, z); uv.push(.5 + rr*Math.cos(a)/(2*footR), .5 + rr*Math.sin(a)/(2*footR));
+    }
+    for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++){ const a = i*(segs + 1) + j, b = a + segs + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); fg.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    fg.setIndex(idx); fg.computeVertexNormals();
+    const fm = new THREE.MeshStandardMaterial({map:tex("foot_albedo.jpg", true), normalMap:tex("foot_normal.jpg"), normalScale:new THREE.Vector2(1.3, 1.3), roughness:.95, side:THREE.DoubleSide, emissive:C(0)});
+    fm.map.wrapS = fm.map.wrapT = THREE.ClampToEdgeWrapping;
+    add(new THREE.Mesh(fg, fm), "foot", {footDisc:true});
+  }
+
+  let layout = {Yb:0, Yw:0, fillerHalf:0, spacing:0, a:0};
+  if (!lite){
+    // BINDER: two halves, directly under the wrapper
+    const bM = leafMats(B.hex, "binder", {rough:.82, sheen:.4, coat:0, normal:1.2});
+    const binderProf = prof(1, 0, L, 150, -leafT*1.05);
+    add(leafShell(binderProf, {seg:96, phi0:0, phiLen:Math.PI, press:p.press, nAround, tile:1.3, disp:innerDisp}, bM, leafT), "binder", {half:1});
+    add(leafShell(binderProf, {seg:96, phi0:Math.PI, phiLen:Math.PI, press:p.press, nAround, tile:1.3, disp:innerDisp}, bM, leafT), "binder", {half:-1});
+
+    // LONG FILLER: seven crinkled bunches, ligero in the centre
+    const a = .30*R;
+    const ring = [
+      {ang:90, type:"volado", slot:3}, {ang:30, type:"seco", slot:2}, {ang:150, type:"viso", slot:1},
+      {ang:210, type:"viso", slot:-1}, {ang:330, type:"seco", slot:-2}, {ang:270, type:"volado", slot:-3}
+    ];
+    const rods = [{ang:null, type:"ligero", slot:0}, ...ring];
+    const spacing = Math.max(2*a + .16, .32);
+    const fMats = {};
+    rods.forEach((rd, i) => {
+      const oy = rd.ang == null ? 0 : 1.9*a*Math.sin(rd.ang*Math.PI/180);
+      const oz = rd.ang == null ? 0 : 1.9*a*Math.cos(rd.ang*Math.PI/180);
+      const pr = [[cx, 0, f(0)], ...samplesX(L, 0, L, 110).map(x => [x + cx, a*f(x)*1.05, f(x)])];
+      pr.push([L + cx, 0, 0]);
+      const k = i*1.7;
+      const crinkle = (phi, x, r) => r*(.08*Math.sin(3*phi + 2.1*x + k) + .05*Math.sin(5*phi - 3.3*x + 2*k) + .04*Math.sin(9*phi + 5*x + 3*k) + .03*Math.sin(14*phi - 7*x + k));
+      const m = fMats[rd.type] ||= leafMats(PRIMINGS[rd.type].hex, "filler", {rough:.88, sheen:.25, coat:0, normal:1.0});
+      const mesh = new THREE.Mesh(revolve(pr, {seg:64, press:p.press, off:[oy, oz], nAround:1, tile:1.2, disp:crinkle}), m.outer);
+      add(mesh, "filler", {priming:rd.type, oy, oz, ty:rd.slot*spacing, i});
+    });
+    const fillerHalf = 3*spacing + a;
+    const Yb = fillerHalf + .45;
+    const Yw = Yb + R + .62;
+    layout = {Yb, Yw, fillerHalf, spacing, a};
+  }
+
+  // label anchors (local coordinates, inside g)
+  const anchorAt = (part, x, y, z, text, when, dot, priming, below) => anchors.push({part, x, y, z, text, when, dot, priming, below});
+  if (!lite){
+    anchorAt("cap", L + cx, R*.35, 0, "Cap", e => true, PARTS.cap.color);
+    anchorAt("band", bandX0 + bw/2 + cx, R*1.1, 0, "Band", e => true, PARTS.band.color);
+    anchorAt("wrapper", cx + L*.32, R*1.02, 0, "Wrapper", e => true, PARTS.wrapper.color);
+    anchorAt("foot", cx + .05, -R*1.05, 0, "Foot", e => e < .12, PARTS.foot.color, null, true);
+    anchorAt("head", L + cx - sh.headLen*.4, -R*1.0, 0, "Head", e => e < .12, PARTS.head.color, null, true);
+    anchorAt("binder", cx + L*.62, R*.97, 0, "Binder", e => e > .55, PARTS.binder.color);
+    // alternate ends so the four labels don't stack on small screens
+    [["volado", .8], ["seco", .2], ["viso", .8], ["ligero", .2]].forEach(([t, at]) => anchorAt("filler", cx + L*at, 0, 0, PRIMINGS[t].name, e => e > .8, PRIMINGS[t].hex, t));
+  }
+
+  const capOff = Math.max(.9, R*2.2);
+  const bandOff = bandX0 + bw + .55;
+  const update = e => {
+    const s1 = ease(clamp(e/.25)), s2 = ease(clamp((e - .25)/.25)), s3 = ease(clamp((e - .5)/.25)), s4 = ease(clamp((e - .75)/.25));
+    for (const m of movers){
+      const u = m.userData;
+      m.position.set(0, 0, 0); m.rotation.set(0, 0, 0);
+      if (u.part === "cap"){ m.position.x = capOff*s1; m.rotation.z = .25*s1; }
+      if (u.part === "band"){ m.position.x = -bandOff*s1; m.position.y = (R*.5)*s1; m.rotation.x = 1.2*s1; }
+      if (u.part === "wrapper" && u.half){ m.position.y = u.half*layout.Yw*s2; m.rotation.x = u.half*.18*s2; }
+      if (u.part === "binder" && u.half){ m.position.y = u.half*layout.Yb*s3; m.rotation.x = u.half*.1*s3; }
+      if (u.part === "filler"){ m.position.y = (u.ty - u.oy)*s4; m.position.z = -u.oz*s4; }
+      if (u.footDisc) m.visible = s4 < .01;
+      const open = u.part === "wrapper" ? s2 : u.part === "binder" ? s3 : u.part === "cap" || u.part === "band" ? s1 : 1;
+      m.traverse(o => { if (Array.isArray(o.material)) o.material[1].visible = open > .001; });
+    }
+  };
+  const anchorWorld = (an, v) => {
+    // follow the mesh the label belongs to
+    v.set(an.x, an.y, an.z);
+    if (an.part === "cap") v.x += capOff*ease(clamp(explode/.25));
+    if (an.part === "band"){ const s1 = ease(clamp(explode/.25)); v.x -= bandOff*s1; v.y += R*.5*s1 + R*.3*s1; }
+    if (an.part === "wrapper") v.y += layout.Yw*ease(clamp((explode - .25)/.25));
+    if (an.part === "binder") v.y += layout.Yb*ease(clamp((explode - .5)/.25));
+    if (an.part === "filler" && an.priming){ v.y = layout.spacing*({volado:3, seco:2, viso:1, ligero:0}[an.priming]) + layout.a*1.2; }
+    return v;
+  };
+  return {group:g, meshes, parts, anchors, update, anchorWorld, L, R, layout, bandX0, bw, sh};
+}
+/* ---------- the tobacco plant: where each filler leaf grows ---------- */
+const ZONES = ["volado", "seco", "viso", "ligero"];
+const ZONE_INFO = {
+  volado:{where:"Bottom of the plant", tint:"#f1dc96"},
+  seco:{where:"Middle of the plant", tint:"#f7f0c8"},
+  viso:{where:"Upper-middle of the plant", tint:"#ffffff"},
+  ligero:{where:"Top of the plant", tint:"#cfe2b4"}
+};
+function leafGeo(len, wid, droop, seed){
+  const NS = 48, NT = 20, pos = [], uv = [], idx = [];
+  for (let i = 0; i <= NS; i++){
+    const s = i/NS;
+    const w = wid*Math.pow(Math.sin(Math.PI*Math.pow(s, .8)), .9)*(1.05 - .3*s) + wid*.05*(1 - s);
+    for (let j = 0; j <= NT; j++){
+      const t = -1 + 2*j/NT;
+      const x = s*len, z = t*w;
+      const y = -droop*len*s*s + .2*w*Math.abs(t) + .07*wid*Math.sin(s*20 + seed + t*2.5)*t*t + .03*wid*Math.sin(s*9 + seed*2)*(1 - t*t);
+      pos.push(x, y, z); uv.push(s, (t + 1)/2);
+    }
+  }
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NT; j++){ const a = i*(NT + 1) + j, b = a + NT + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function buildPlant(){
+  const g = new THREE.Group(), meshes = [], leaves = [], mats = {}, zoneY = {};
+  const H = 9.2;
+  // stalk
+  const sProf = []; for (let i = 0; i <= 40; i++){ const x = H*i/40; sProf.push([x, .17*(1 - .72*i/40), 1]); }
+  sProf.push([H, 0, 0]);
+  const stalkMat = new THREE.MeshPhysicalMaterial({color:C("#7d9444"), roughness:.65, sheen:.8, sheenRoughness:.4, sheenColor:C("#e6f0c8"), normalMap:tex("filler_normal.jpg"), normalScale:new THREE.Vector2(.5, .5), side:THREE.DoubleSide});
+  const stalk = new THREE.Mesh(revolve(sProf, {seg:24, nAround:1, tile:2}), stalkMat);
+  stalk.rotation.z = Math.PI/2; stalk.castShadow = true; g.add(stalk);
+  // leaves, spiralling up the stalk; big at the bottom, smaller at the top
+  const leafTex = {map:tex("plantleaf_albedo.jpg", true), normalMap:tex("plantleaf_normal.jpg")};
+  leafTex.map.wrapS = leafTex.map.wrapT = leafTex.normalMap.wrapS = leafTex.normalMap.wrapT = THREE.ClampToEdgeWrapping;
+  for (const z of ZONES) mats[z] = new THREE.MeshPhysicalMaterial({...leafTex, color:C(ZONE_INFO[z].tint), roughness:.62, sheen:.25, sheenRoughness:.6, sheenColor:C("#b8d890"), normalScale:new THREE.Vector2(.55, .55), side:THREE.DoubleSide, emissive:C(0)});
+  const N = 18;
+  for (let i = 0; i < N; i++){
+    const f = i/(N - 1);
+    const zone = f < .3 ? "volado" : f < .58 ? "seco" : f < .8 ? "viso" : "ligero";
+    const y = .45 + f*(H - 1.4);
+    const len = 4.3*(1 - .55*Math.pow(f, 1.4)), wid = len*.46;
+    const pivot = new THREE.Group(); pivot.position.y = y; pivot.rotation.y = i*2.39996;
+    const leaf = new THREE.Mesh(leafGeo(len, wid, .3 - .18*f, i*1.3), mats[zone]);
+    leaf.position.x = .12*(1 - .7*f); leaf.rotation.z = .12 + .6*f; leaf.rotation.x = (i % 2 ? .08 : -.08);
+    leaf.castShadow = true;
+    Object.assign(leaf.userData, {part:"leaf", priming:zone, len});
+    pivot.add(leaf); g.add(pivot);
+    meshes.push(leaf); leaves.push(leaf);
+    (zoneY[zone] ||= []).push(y);
+  }
+  // flower head
+  const flowerMat = new THREE.MeshPhysicalMaterial({color:C("#e9a3b6"), roughness:.55, sheen:.6, sheenColor:C("#ffe0ea"), side:THREE.DoubleSide});
+  const calyxMat = new THREE.MeshStandardMaterial({color:C("#7f9a46"), roughness:.7});
+  for (let k = 0; k < 16; k++){
+    const a = k*2.39996, tilt = .45 + .65*(k/16);
+    const fl = new THREE.Group(); fl.position.y = H - .15; fl.rotation.y = a;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(.015, .02, .5, 6), calyxMat); stem.position.set(Math.sin(tilt)*.3, .3, 0); stem.scale.y = 1.25; stem.rotation.z = -tilt; fl.add(stem);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(.09, .03, .38, 10, 1, true), flowerMat);
+    tube.position.set(Math.sin(tilt)*.7, .7, 0); tube.rotation.z = -tilt; tube.castShadow = true; fl.add(tube);
+    g.add(fl);
+  }
+  // soil
+  const soil = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.7, .3, 48), new THREE.MeshStandardMaterial({map:tex("foot_albedo.jpg", true), color:C("#8a6a52"), roughness:.95}));
+  soil.position.y = -.12; soil.castShadow = true; g.add(soil);
+  // brackets marking each priming zone
+  const zoneSpan = {};
+  for (const z of ZONES){
+    const ys = zoneY[z], y0 = Math.min(...ys) - .2, y1 = Math.max(...ys) + .2;
+    zoneSpan[z] = [y0, y1];
+    const lm = new THREE.LineBasicMaterial({color:C(PRIMINGS[z].hex).lerp(C("#e3a548"), .5)});
+    const X = -3.1;
+    const pts = [[X + .18, y0, 0], [X, y0, 0], [X, y1, 0], [X + .18, y1, 0]].map(p => new THREE.Vector3(...p));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lm));
+  }
+  return {group:g, meshes, leaves, mats, zoneSpan, H};
+}
+
+/* =====================================================================
+   SCENE CONTENT
+   ===================================================================== */
+let model = null, lineup = [], measureGroup = null, fitDist = 14, zoom = 1, camZ = 14;
+let plant = null, plantCigar = null, rodMats = {}, flights = [], flash = null, flightN = 0;
+const labelPool = [];
+
+function currentParams(){
+  const v = vitolaById(S.vitola);
+  return {L:S.L, rg:S.rg, head:S.head, press:S.press, wrapper:S.wrapper, binder:S.binder, madeIn:S.madeIn, name:v ? v.name : "Custom"};
+}
+
+function disposeGroup(g){
+  g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material){ (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
+  g.parent && g.parent.remove(g);
+}
+
+function buildMeasure(L, R){
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({color:0xe3a548, transparent:true, opacity:.85});
+  const y = -R*1.25 - .25, cx = -L/2;
+  const pts = [[cx, y + .12, 0], [cx, y - .12, 0], [cx, y, 0], [cx + L, y, 0], [cx + L, y + .12, 0], [cx + L, y - .12, 0]];
+  const seg = (a, b) => { const gg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]); g.add(new THREE.Line(gg, mat)); };
+  seg(pts[0], pts[1]); seg(pts[2], pts[3]); seg(pts[4], pts[5]);
+  const circ = []; for (let i = 0; i <= 64; i++){ const a = i/64*TAU; circ.push(new THREE.Vector3(cx - .02, Math.cos(a)*R*1.08, Math.sin(a)*R*1.08)); }
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(circ), mat));
+  seg([cx - .02, -R, 0], [cx - .02, R, 0]);
+  g.userData.anchors = [{x:cx + L/2, y:y - .02, z:0, kind:"len"}, {x:cx - .05, y:R*1.08, z:0, kind:"ring", up:true}];
+  return g;
+}
+
+function rebuild(){
+  if (model){ disposeGroup(model.group); model = null; }
+  lineup.forEach(m => disposeGroup(m.group)); lineup = [];
+  if (measureGroup){ disposeGroup(measureGroup); measureGroup = null; }
+  if (plant){ disposeGroup(plant.group); plant = null; }
+  if (plantCigar){ disposeGroup(plantCigar.group); plantCigar = null; }
+  flights.forEach(f => { root.remove(f.mesh); f.mesh.material.dispose(); }); flights = [];
+  if (S.view === "plant"){
+    plant = buildPlant();
+    const nar = stage.clientWidth < 640;
+    plant.group.position.set(nar ? -3.0 : -2.3, -4.7, 0);
+    root.add(plant.group);
+    plantCigar = buildCigar(currentParams());
+    plantCigar.update(1);
+    rodMats = {};
+    plantCigar.meshes.forEach(m => { if (m.userData.part !== "filler") m.visible = false; else rodMats[m.userData.priming] = m.material; });
+    plantCigar.group.scale.setScalar(1.3);
+    plantCigar.group.position.set(nar ? 3.0 : 3.7, -.2, 0);
+    plantCigar.group.rotation.y = -.3;
+    root.add(plantCigar.group);
+    fitDist = nar ? fitFor(8.4, 5.9) : fitFor(7.4, 5.9);
+  } else if (S.view === "single"){
+    model = buildCigar(currentParams());
+    root.add(model.group);
+    model.update(explode);
+    measureGroup = buildMeasure(model.L, model.R);
+    root.add(measureGroup);
+    const halfH = model.layout.Yw + model.R*1.4 + .3;
+    const halfW = model.L/2 + Math.max(.9, model.R*2.2) * .6 + 1.3;
+    singleFit();
+  } else {
+    const list = VITOLAS.filter(v => S.famFilter === "All" || v.fam === S.famFilter);
+    const maxL = Math.max(...list.map(v => v.len)), maxD = Math.max(...list.map(v => v.rg/64));
+    const gap = maxD + .42, n = list.length;
+    list.forEach((v, i) => {
+      const m = buildCigar({L:v.len, rg:v.rg, head:v.head, press:S.press, wrapper:S.wrapper, binder:S.binder, madeIn:S.madeIn, name:v.name}, {lite:true});
+      m.vitola = v; m.update(0);
+      m.group.position.set(-maxL/2 + v.len/2 + (narrowLineup() ? 0 : 1.1), (n - 1)/2*gap - i*gap, 0);
+      m.meshes.forEach(ms => ms.userData.vitola = v.id);
+      root.add(m.group); lineup.push(m);
+    });
+    const narrow = narrowLineup();
+    if (narrow) list.forEach((v, i) => lineup[i].group.position.y = (n - 1)/2*gap*1.55 - i*gap*1.55);
+    fitDist = narrow ? fitFor(maxL/2 + .35, (n*gap*1.55/2 + .5)*1.15) : fitFor(maxL/2 + 2.6, (n*gap/2 + 1.1)*1.2);
+  }
+  updateLabelsSetup();
+  updateTitle();
+}
+
+let reserveTop = 0, reserveBot = 0;
+function applyViewOffset(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const tc = $("#titleCard"), dk = $("#dock");
+  reserveTop = tc.offsetTop + tc.offsetHeight + 6;
+  reserveBot = S.view === "single" ? dk.offsetHeight + 18 : 8;
+  const shift = Math.round((reserveBot - reserveTop)/2);
+  camera.setViewOffset(w, h, 0, shift, w, h);
+  camera.updateProjectionMatrix();
+}
+let fitWhole = 10, fitApart = 14;
+function singleFit(){
+  fitApart = fitFor(model.L/2 + Math.max(.9, model.R*2.2)*.6 + 1.3, model.layout.Yw + model.R*1.4 + .3);
+  fitWhole = fitFor(model.L/2 + .5, model.R*1.6 + .9);
+  fitDist = fitWhole + (fitApart - fitWhole)*ease(clamp(explode/.3));
+}
+function fitFor(halfW, halfH){
+  applyViewOffset();
+  const freeH = Math.max(120, stage.clientHeight - reserveTop - reserveBot);
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  const k = stage.clientHeight / freeH; // the free band is only part of the canvas height
+  const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+  return Math.max(halfH*k / t, halfW / (t*aspect)) * 1.04 + 1.0;
+}
+
+/* ---------- labels ---------- */
+let labelDefs = [];
+function updateLabelsSetup(){
+  labelsEl.innerHTML = ""; labelDefs = [];
+  if (S.view === "single" && model){
+    model.anchors.forEach(an => {
+      const el = document.createElement("div"); el.className = "lbl"; el.textContent = an.text; el.style.setProperty("--dot", an.dot);
+      labelsEl.appendChild(el); labelDefs.push({el, an, type:"part"});
+    });
+    if (measureGroup) measureGroup.userData.anchors.forEach(a => {
+      const el = document.createElement("div"); el.className = "lbl";
+      const mm = (S.rg/64*25.4).toFixed(1);
+      el.textContent = a.kind === "len" ? `${fmtIn(S.L)} in long` : `${S.rg} ring · ${(S.rg/64).toFixed(2)} in (${mm} mm)`;
+      el.style.setProperty("--dot", "#e3a548");
+      labelsEl.appendChild(el); labelDefs.push({el, an:a, type:"measure"});
+    });
+  } else if (S.view === "plant" && plant){
+    const gen = (text, dot, obj, local, off) => { const el = document.createElement("div"); el.className = "lbl"; el.textContent = text; el.style.setProperty("--dot", dot); labelsEl.appendChild(el); labelDefs.push({el, type:"gen", obj, local, off}); };
+    for (const z of ZONES){
+      const [y0, y1] = plant.zoneSpan[z];
+      gen(stage.clientWidth < 640 ? PRIMINGS[z].name : `${PRIMINGS[z].name} · ${ZONE_INFO[z].where.replace(" of the plant", "").toLowerCase()}`, PRIMINGS[z].hex, plant.group, new THREE.Vector3(-3.15, (y0 + y1)/2, 0), "translate(-100%,-50%)");
+      const slot = {volado:3, seco:2, viso:1, ligero:0}[z];
+      if (stage.clientWidth >= 640) gen(PRIMINGS[z].name, PRIMINGS[z].hex, plantCigar.group, new THREE.Vector3(plantCigar.L/2 + .1, slot*plantCigar.layout.spacing, 0), "translate(6px,-50%)");
+    }
+    gen(stage.clientWidth < 640 ? "Filler bunch" : "Filler bunch, fanned out", "#e3a548", plantCigar.group, new THREE.Vector3(0, 3*plantCigar.layout.spacing + .55, 0), "translate(-50%,-100%)");
+  } else {
+    lineup.forEach(m => {
+      const el = document.createElement("div"); el.className = "lbl lineup" + (m.vitola.id === S.vitola ? " sel" : "");
+      el.innerHTML = `${m.vitola.name}<span>${fmtIn(m.vitola.len)} × ${m.vitola.rg}</span>`;
+      labelsEl.appendChild(el); labelDefs.push({el, m, type:"lineup"});
+    });
+  }
+}
+const _v = new THREE.Vector3();
+const narrowLineup = () => stage.clientWidth < 640;
+function placeLabels(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  for (const d of labelDefs){
+    let show = true;
+    if (d.type === "part"){
+      show = S.labels && d.an.when(explode);
+      if (show){ model.anchorWorld(d.an, _v); _v.applyMatrix4(model.group.matrixWorld); }
+    } else if (d.type === "measure"){
+      show = S.measure && explode < .04;
+      if (show){ _v.set(d.an.x, d.an.y, d.an.z).applyMatrix4(measureGroup.matrixWorld); }
+    } else if (d.type === "gen"){
+      show = S.labels;
+      if (show) _v.copy(d.local).applyMatrix4(d.obj.matrixWorld);
+    } else {
+      const m = d.m; if (narrowLineup()) _v.set(-m.L/2, m.R + .05, 0); else _v.set(-m.L/2 - .25, 0, 0);
+      _v.applyMatrix4(m.group.matrixWorld);
+    }
+    if (!show){ d.el.style.opacity = 0; continue; }
+    _v.project(camera);
+    const x = (_v.x*.5 + .5)*w, y = (-_v.y*.5 + .5)*h;
+    const off = d.type === "gen" ? d.off : d.type === "lineup" ? (narrowLineup() ? "translate(0,-100%)" : "translate(-100%,-50%)") : d.type === "measure" ? (d.an.up ? "translate(-50%,-140%)" : "translate(-50%,6px)") : d.an.below ? "translate(-50%,40%)" : "translate(-50%,-135%)";
+    d.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) ${off}`;
+    d.el.style.opacity = _v.z < 1 ? 1 : 0;
+  }
+}
+
+/* =====================================================================
+   CONTROLS: free rotation in every direction (trackball style)
+   ===================================================================== */
+const pointers = new Map();
+let lastX = 0, lastY = 0, vx = 0, vy = 0, dragging = false, downAt = null, pinchStart = 0, zoomStart = 1, spin = false;
+let slerpTo = null;
+const qa = new THREE.Quaternion(), AX = new THREE.Vector3(1,0,0), AY = new THREE.Vector3(0,1,0), AZ = new THREE.Vector3(0,0,1);
+function rotateBy(dx, dy){
+  qa.setFromAxisAngle(AY, dx); root.quaternion.premultiply(qa);
+  qa.setFromAxisAngle(AX, dy); root.quaternion.premultiply(qa);
+}
+canvas.addEventListener("pointerdown", e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pointers.size === 1){ lastX = e.clientX; lastY = e.clientY; downAt = {x:e.clientX, y:e.clientY, t:performance.now()}; dragging = true; vx = vy = 0; slerpTo = null; canvas.classList.add("dragging"); hideHint(); }
+  if (pointers.size === 2){ const [a, b] = [...pointers.values()]; pinchStart = Math.hypot(a.x - b.x, a.y - b.y); zoomStart = zoom; downAt = null; }
+});
+canvas.addEventListener("pointermove", e => {
+  if (!pointers.has(e.pointerId)){ if (e.pointerType === "mouse") hover(e); return; }
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pointers.size === 2){
+    const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinchStart > 0) zoom = clamp(zoomStart * pinchStart / d, .3, 2.6);
+    return;
+  }
+  const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+  const k = 0.0085;
+  rotateBy(dx*k, dy*k); vx = dx*k; vy = dy*k;
+});
+const endPointer = e => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0){
+    dragging = false; canvas.classList.remove("dragging");
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 500){ vx = vy = 0; pick(e); }
+    downAt = null;
+  }
+};
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("wheel", e => { e.preventDefault(); zoom = clamp(zoom * Math.exp(e.deltaY * .0012), .3, 2.6); hideHint(); }, {passive:false});
+canvas.addEventListener("dblclick", () => resetView());
+canvas.addEventListener("keydown", e => {
+  const st = .12;
+  if (e.key === "ArrowLeft"){ rotateBy(-st, 0); e.preventDefault(); }
+  if (e.key === "ArrowRight"){ rotateBy(st, 0); e.preventDefault(); }
+  if (e.key === "ArrowUp"){ rotateBy(0, -st); e.preventDefault(); }
+  if (e.key === "ArrowDown"){ rotateBy(0, st); e.preventDefault(); }
+  if (e.key === "+" || e.key === "="){ zoom = clamp(zoom*.9, .3, 2.6); }
+  if (e.key === "-"){ zoom = clamp(zoom*1.1, .3, 2.6); }
+});
+function resetView(){ slerpTo = homeFor(S.view).clone(); zoom = 1; vx = vy = 0; }
+
+/* picking */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function hitAt(e){
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const objs = S.view === "single" ? (model ? model.meshes : []) : S.view === "plant" ? (plant ? [...plant.meshes, ...plantCigar.meshes.filter(m => m.userData.part === "filler")] : []) : lineup.flatMap(m => m.meshes);
+  const hits = ray.intersectObjects(objs, false);
+  return hits[0] ? hits[0].object : null;
+}
+let hovered = null;
+function hover(e){
+  const o = hitAt(e);
+  const key = o ? (S.view === "single" ? o.userData.part + (o.userData.priming || "") : S.view === "plant" ? o.userData.priming : o.userData.vitola) : null;
+  if (key === hovered) return;
+  hovered = key; canvas.classList.toggle("hovering", !!o);
+  highlight();
+}
+let selectedPart = null, selectedPriming = null;
+function pick(e){
+  const o = hitAt(e);
+  if (S.view === "lineup"){ if (o){ chooseVitola(o.userData.vitola); setView("single"); } return; }
+  if (S.view === "plant"){
+    if (!o){ closeInfo(); return; }
+    const z = o.userData.priming;
+    if (o.userData.part === "leaf") flyLeaf(o); else flash = {zone:z, t0:performance.now()};
+    showZone(z); return;
+  }
+  if (!o){ closeInfo(); return; }
+  showPart(o.userData.part, o.userData.priming);
+}
+function highlight(){
+  if (S.view === "plant") return; // the plant glows from the render loop
+  const all = S.view === "single" ? (model ? model.meshes : []) : lineup.flatMap(m => m.meshes);
+  for (const m of all){
+    const u = m.userData;
+    let on = false;
+    if (S.view === "single"){
+      const k = u.part + (u.priming || "");
+      on = (hovered && k === hovered) || (selectedPart && u.part === selectedPart && (!selectedPriming || u.priming === selectedPriming));
+    } else on = hovered && u.vitola === hovered;
+    (Array.isArray(m.material) ? m.material : [m.material]).forEach(mt => mt.emissive && mt.emissive.setHex(on ? 0x4a2a0c : 0x000000));
+  }
+}
+
+/* =====================================================================
+   RENDER LOOP
+   ===================================================================== */
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+}
+new ResizeObserver(() => { resize(); rebuildFitOnly(); }).observe(stage);
+function rebuildFitOnly(){
+  if (S.view === "single" && model) singleFit();
+  else if (S.view === "plant") fitDist = stage.clientWidth < 640 ? fitFor(8.4, 5.9) : fitFor(7.4, 5.9);
+  else if (lineup.length){ const maxL = Math.max(...lineup.map(m => m.L)), gap = Math.max(...lineup.map(m => m.R*2)) + .42; fitDist = narrowLineup() ? fitFor(maxL/2 + .35, (lineup.length*gap*1.55/2 + .5)*1.15) : fitFor(maxL/2 + 2.6, (lineup.length*gap/2 + 1.1)*1.2); }
+}
+
+let lastT = performance.now(), groundInit = false;
+const _box = new THREE.Box3();
+function frame(t){
+  const dt = Math.min(50, t - lastT); lastT = t;
+  if (tween){
+    const u = clamp((t - tween.t0)/tween.ms);
+    setExplode(tween.from + (tween.to - tween.from)*ease(u), false);
+    if (u >= 1) tween = null;
+  }
+  if (!dragging){
+    if (Math.abs(vx) + Math.abs(vy) > 1e-5){ rotateBy(vx, vy); vx *= .93; vy *= .93; }
+    if (spin) rotateBy(.0045*dt/16, 0);
+    if (slerpTo){ root.quaternion.slerp(slerpTo, .12); if (root.quaternion.angleTo(slerpTo) < .002){ root.quaternion.copy(slerpTo); slerpTo = null; } }
+  }
+  if (S.view === "single" && model) fitDist = fitWhole + (fitApart - fitWhole)*ease(clamp(explode/.3));
+  camZ += (fitDist*zoom - camZ)*.14;
+  camera.position.z = camZ;
+  if (measureGroup) measureGroup.visible = S.measure && explode < .04;
+  if (S.view === "plant" && plant) plantFrame(t);
+  root.updateMatrixWorld(true);
+  // keep the shadow just under the lowest point, wherever the cigar is turned
+  _box.setFromObject(root);
+  ground.visible = S.view !== "lineup";
+  if (isFinite(_box.min.y)){
+    const gy = _box.min.y - .04;
+    ground.position.y += (gy - ground.position.y)*(groundInit ? .2 : 1); groundInit = true;
+    key.target.position.set(0, ground.position.y, 0);
+    key.position.copy(key.target.position).add(KEY_OFF);
+    const ext = Math.max(_box.max.x - _box.min.x, _box.max.z - _box.min.z)*.6 + 1;
+    const sc = key.shadow.camera; if (Math.abs(sc.right - ext) > .5){ sc.left = sc.bottom = -ext; sc.right = sc.top = ext; sc.updateProjectionMatrix(); }
+  }
+  renderer.render(scene, camera);
+  placeLabels();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- plant view: harvest a leaf and send it to the filler ---------- */
+const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4();
+function flyLeaf(leaf){
+  if (!leaf.visible) return;
+  const zone = leaf.userData.priming;
+  const rods = plantCigar.meshes.filter(m => m.userData.part === "filler" && m.userData.priming === zone);
+  const rod = rods[flightN++ % rods.length];
+  root.updateMatrixWorld(true);
+  _inv.copy(root.matrixWorld).invert();
+  _m.multiplyMatrices(_inv, leaf.matrixWorld);
+  const p0 = new THREE.Vector3(), q0 = new THREE.Quaternion(), s0 = new THREE.Vector3();
+  _m.decompose(p0, q0, s0);
+  const p1 = plantCigar.group.localToWorld(new THREE.Vector3(-plantCigar.L/2, rod.userData.ty, 0)).applyMatrix4(_inv);
+  const q1 = plantCigar.group.quaternion.clone();
+  const rodLen = plantCigar.L*1.3;
+  const s1 = new THREE.Vector3(rodLen/leaf.userData.len, .12, .16);
+  const mat = leaf.material.clone(); mat.transparent = true;
+  const mesh = new THREE.Mesh(leaf.geometry, mat); mesh.castShadow = true;
+  mesh.position.copy(p0); mesh.quaternion.copy(q0); mesh.scale.copy(s0);
+  root.add(mesh);
+  leaf.visible = false;
+  const ctrl = p0.clone().lerp(p1, .5).add(new THREE.Vector3(0, 2.6, 1.6));
+  flights.push({mesh, leaf, zone, p0, p1, q0, q1, s0, s1, ctrl, t0:performance.now(), dur:1600});
+}
+function flyZone(zone){
+  const ls = plant.leaves.filter(l => l.userData.priming === zone && l.visible);
+  if (ls.length) flyLeaf(ls[Math.floor(ls.length/2)]);
+}
+const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+function plantFrame(t){
+  for (let i = flights.length - 1; i >= 0; i--){
+    const f = flights[i], u = clamp((t - f.t0)/f.dur), e = ease(u);
+    _a.copy(f.p0).lerp(f.ctrl, e); _b.copy(f.ctrl).lerp(f.p1, e); f.mesh.position.copy(_a.lerp(_b, e));
+    f.mesh.quaternion.slerpQuaternions(f.q0, f.q1, e);
+    const r = e*e; // the leaf rolls up late in the flight
+    f.mesh.scale.set(f.s0.x + (f.s1.x - f.s0.x)*e, f.s0.y + (f.s1.y - f.s0.y)*r, f.s0.z + (f.s1.z - f.s0.z)*r);
+    f.mesh.material.opacity = u < .8 ? 1 : 1 - (u - .8)/.2;
+    if (u >= 1){
+      root.remove(f.mesh); f.mesh.material.dispose(); flights.splice(i, 1);
+      flash = {zone:f.zone, t0:t};
+      setTimeout(() => { f.leaf.visible = true; }, 900);
+    }
+  }
+  for (const z of ZONES){
+    let v = 0;
+    if (hovered === z) v = .3;
+    if (selectedPriming === z) v = Math.max(v, .22);
+    if (flash && flash.zone === z){ const k = (t - flash.t0)/1800; if (k < 1) v = Math.max(v, Math.pow(Math.sin(k*Math.PI*3), 2)*(1 - k)*.9); }
+    plant.mats[z].emissive.setRGB(.5*v, .3*v, .07*v);
+    if (rodMats[z]) rodMats[z].emissive.setRGB(.5*v, .3*v, .07*v);
+  }
+}
+function showZone(z){
+  selectedPart = "filler"; selectedPriming = z;
+  $("#infoTitle").textContent = PRIMINGS[z].name;
+  $("#infoBody").innerHTML = `<p>${PRIMINGS[z].text}</p><div class="ctx"><b>On the plant:</b> ${ZONE_INFO[z].where.toLowerCase()}.${z === "ligero" ? " Blenders tend to put it in the center of the bunch because it burns slowest." : ""}</div>`;
+  $("#info").hidden = false;
+  renderParts();
+}
+
+/* =====================================================================
+   EXPLODE SLIDER
+   ===================================================================== */
+const slider = $("#explode"), ticks = $("#ticks");
+ticks.innerHTML = STAGES.map((s, i) => `<button type="button" data-at="${s.at}">${["Whole","Band & cap","Wrapper","Binder","Filler"][i]}</button>`).join("");
+ticks.addEventListener("click", e => { const b = e.target.closest("button"); if (b) animateExplode(+b.dataset.at); });
+slider.addEventListener("input", () => { tween = null; setExplode(slider.value/1000, false); hideHint(); });
+$("#btnPlay").addEventListener("click", () => animateExplode(explode > .5 ? 0 : 1, 2600));
+function animateExplode(to, ms){ tween = {from:explode, to, t0:performance.now(), ms:ms ?? 900 + Math.abs(to - explode)*1400}; }
+function setExplode(e, fromCode = true){
+  explode = clamp(e);
+  if (model) model.update(explode);
+  slider.value = Math.round(explode*1000);
+  slider.style.setProperty("--fill", (explode*100).toFixed(1) + "%");
+  let st = STAGES[0];
+  for (const s of STAGES) if (explode >= s.at - .06) st = s;
+  $("#stageName").textContent = st.name; $("#stageHint").textContent = st.hint;
+  ticks.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.at === st.at));
+  $("#playIcon").innerHTML = explode > .5 ? '<path d="M17 5v14L5 12z"/>' : '<path d="M7 5v14l12-7z"/>';
+  $("#btnPlay").setAttribute("aria-label", explode > .5 ? "Put it back together" : "Pull apart");
+  void fromCode;
+}
+
+/* =====================================================================
+   PANEL UI
+   ===================================================================== */
+const svgCigar = (v, hex) => {
+  // little side-view silhouette for the size buttons
+  const L = v.len, R = v.rg/64/2, sh = shapeFn(v.head, L, R), sc = 44/8.2, rs = 44/8.2*1.7;
+  const pts = []; for (let i = 0; i <= 40; i++){ const x = L*i/40; pts.push([x*sc, 12 - sh.fn(x)*R*rs]); }
+  const bot = pts.map(([x, y]) => [x, 24 - y]).reverse();
+  const d = "M" + [...pts, ...bot].map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join("L") + "Z";
+  return `<svg class="mini-cig" viewBox="0 0 44 24" aria-hidden="true"><path d="${d}" fill="${hex}" stroke="rgba(255,230,190,.35)" stroke-width=".6"/></svg>`;
+};
+
+function renderSize(){
+  const v = vitolaById(S.vitola), W = wrapperById(S.wrapper);
+  const list = VITOLAS.filter(x => S.famFilter === "All" || x.fam === S.famFilter);
+  const mm = (S.rg/64*25.4).toFixed(1);
+  $("#pane-size").innerHTML = `
+    <h2>Size and shape</h2>
+    <p class="muted">Length is in inches, ring gauge in 64ths of an inch. Exact dimensions vary by brand, so treat these as typical.</p>
+    <h4>Filter</h4>
+    <div class="chips" data-group="fam">${["All","Parejo","Figurado"].map(f => `<button class="chip" type="button" data-fam="${f}" aria-pressed="${S.famFilter === f}">${f === "All" ? "All shapes" : f + "s"}</button>`).join("")}</div>
+    <p class="muted" style="font-size:.8rem;margin-top:6px">Parejos are straight-sided. Figurados are tapered or irregular.</p>
+    <h4>Pick a size</h4>
+    <div class="grid2">${list.map(x => `<button class="opt" type="button" data-vitola="${x.id}" aria-pressed="${S.vitola === x.id}">${svgCigar(x, W.hex)}<span><b>${x.name}</b><small>${fmtIn(x.len)} × ${x.rg}</small></span></button>`).join("")}</div>
+    <div class="card hi" style="margin-top:14px">
+      <dl class="kv">
+        <dt>Size</dt><dd>${v ? v.name : "Custom"}</dd>
+        <dt>Length</dt><dd>${fmtIn(S.L)} in (${(S.L*25.4).toFixed(0)} mm)</dd>
+        <dt>Ring gauge</dt><dd>${S.rg} · ${(S.rg/64).toFixed(2)} in (${mm} mm)</dd>
+        <dt>Family</dt><dd>${(HEADS.find(h => h.id === S.head) || HEADS[0]).fam}${S.press ? " · box-pressed" : ""}</dd>
+        <dt>Smoke time</dt><dd>${v && v.time ? v.time : "<span class='muted'>Not in the study guide</span>"}</dd>
+      </dl>
+      ${v ? `<p style="margin-top:8px">${v.note}.</p>` : ""}
+      ${v && v.src === "typical" ? `<p class="src">The study guide names this shape but gives no size, so this is a common size for it.</p>` : ""}
+    </div>
+    <h4>Build your own</h4>
+    <div class="slider-row"><label for="lenR">Length</label><input type="range" id="lenR" min="3.5" max="8" step=".125" value="${S.L}"><output>${fmtIn(S.L)} in</output></div>
+    <div class="slider-row"><label for="rgR">Ring gauge</label><input type="range" id="rgR" min="30" max="70" step="1" value="${S.rg}"><output>${S.rg}</output></div>
+    <h4>Head shape</h4>
+    <div class="chips">${HEADS.map(h => `<button class="chip" type="button" data-head="${h.id}" aria-pressed="${S.head === h.id}">${h.name}</button>`).join("")}</div>
+    <h4>Press</h4>
+    <div class="chips"><button class="chip" type="button" data-press="0" aria-pressed="${!S.press}">Round</button><button class="chip" type="button" data-press="1" aria-pressed="${!!S.press}">Box-pressed</button></div>
+    <div class="card" style="margin-top:14px"><p style="margin:0"><b>Rule of thumb for customers:</b> more length means more time, more ring gauge means cooler and milder-feeling smoke. Thinner cigars (under 40) smoke hotter and more intensely; thicker ones (50+) smoke cooler with more layered flavor.</p></div>`;
+  ["lenR", "rgR"].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.setProperty("--fill", ((el.value - el.min)/(el.max - el.min)*100) + "%");
+    el.addEventListener("input", () => {
+      if (id === "lenR") S.L = +el.value; else S.rg = +el.value;
+      const match = VITOLAS.find(x => x.len === S.L && x.rg === S.rg && x.head === S.head);
+      S.vitola = match ? match.id : "custom";
+      el.nextElementSibling.textContent = id === "lenR" ? fmtIn(S.L) + " in" : S.rg;
+      el.style.setProperty("--fill", ((el.value - el.min)/(el.max - el.min)*100) + "%");
+      save(); queueRebuild();
+    });
+    el.addEventListener("change", () => renderSize());
+  });
+}
+
+function renderWrapper(){
+  const W = wrapperById(S.wrapper), B = binderById(S.binder);
+  const list = WRAPPERS.filter(w => S.shadeFilter === "All" || w.shade === S.shadeFilter);
+  $("#pane-wrapper").innerHTML = `
+    <h2>Wrapper</h2>
+    <p class="muted">The outer leaf, the biggest contributor to visible flavor and color.</p>
+    <h4>Filter by shade</h4>
+    <div class="chips">${["All","Light","Medium","Dark"].map(f => `<button class="chip" type="button" data-shade="${f}" aria-pressed="${S.shadeFilter === f}">${f}</button>`).join("")}</div>
+    <h4>Pick a wrapper</h4>
+    <div class="grid2">${list.map(w => `<button class="opt" type="button" data-wrapper="${w.id}" aria-pressed="${S.wrapper === w.id}"><span class="sw" style="background:${w.hex}"></span><span><b>${w.name}</b><small>${w.shade}</small></span></button>`).join("")}</div>
+    <div class="card hi" style="margin-top:14px">
+      <h2 style="margin:0 0 6px">${W.name}</h2>
+      <dl class="kv"><dt>What it is</dt><dd>${W.what}</dd><dt>Grown</dt><dd>${W.grown}</dd><dt>Flavor and look</dt><dd>${W.flavor}</dd></dl>
+    </div>
+    <p class="muted" style="font-size:.84rem"><b>Tip for conversations:</b> “Maduro” describes a color and process, not a country. A Maduro can be Broadleaf, Mexican, Brazilian, or Nicaraguan.</p>
+    <h4>Binder</h4>
+    <p class="muted" style="font-size:.84rem">Holds the filler and affects how the cigar burns. Pull the cigar to “Binder” to see it.</p>
+    <div class="grid2">${BINDERS.map(b => `<button class="opt" type="button" data-binder="${b.id}" aria-pressed="${S.binder === b.id}"><span class="sw" style="background:${b.hex}"></span><span><b>${b.name}</b><small>${b.country}</small></span></button>`).join("")}</div>
+    <div class="card" style="margin-top:12px"><dl class="kv"><dt>Binder</dt><dd>${B.name}</dd></dl></div>`;
+}
+
+function renderOrigin(){
+  const C = COUNTRIES.find(c => c.id === S.madeIn) || COUNTRIES[2];
+  const W = wrapperById(S.wrapper), B = binderById(S.binder);
+  const F = COUNTRIES.find(c => c.id === S.filler) || COUNTRIES[2];
+  const wCountry = W.grown;
+  const countriesUsed = new Set([B.country, F.id, C.id]);
+  const wrapperPlace = ({"ct-shade":"USA","broadleaf":"USA","ec-ct":"Ecuador","cameroon":"Cameroon","sumatra":"Indonesia","mata-fina":"Brazil","san-andres":"Mexico"})[W.id];
+  if (wrapperPlace) countriesUsed.add(wrapperPlace);
+  const puro = wrapperPlace ? countriesUsed.size === 1 : false;
+  const top = TOP50.filter(t => t[1].includes(C.id));
+  $("#pane-origin").innerHTML = `
+    <h2>Where it comes from</h2>
+    <p class="muted">Four countries make most of the premium cigars you'll sell. Wrappers and fillers often come from other places.</p>
+    <h4>Rolled in</h4>
+    <div class="chips">${COUNTRIES.map(c => `<button class="chip" type="button" data-made="${c.id}" aria-pressed="${S.madeIn === c.id}"><span class="dot" style="background:${c.band[0]}"></span>${c.id}</button>`).join("")}</div>
+    <div class="card hi" style="margin-top:10px">
+      <h2 style="margin:0 0 6px">${C.id}</h2>
+      <dl class="kv"><dt>Known for</dt><dd>${C.known}</dd><dt>Typical profile</dt><dd>${C.profile}</dd></dl>
+      <p class="src">The band on the 3D cigar changes with this.</p>
+    </div>
+    <h4>Filler grown in</h4>
+    <select class="sel" id="fillerSel" aria-label="Filler country">${COUNTRIES.map(c => `<option ${S.filler === c.id ? "selected" : ""}>${c.id}</option>`).join("")}</select>
+    <h4>Leaf passport ${puro ? '<span class="badge">PURO</span>' : ""}</h4>
+    <div class="passport">
+      <div class="pp"><i style="background:${W.hex}"></i><b>Wrapper</b><span>${W.name}<br><em>${wCountry}</em></span></div>
+      <div class="pp"><i style="background:${B.hex}"></i><b>Binder</b><span>${B.name}<br><em>${B.country}</em></span></div>
+      <div class="pp"><i style="background:${PRIMINGS.seco.hex}"></i><b>Filler</b><span>${F.id}<br><em>${F.profile}</em></span></div>
+      <div class="pp"><i style="background:${C.band[0]}"></i><b>Rolled</b><span>${C.id}</span></div>
+    </div>
+    <p class="muted" style="font-size:.82rem"><b>Puro:</b> every leaf grown in one country. Change the wrapper and binder to build one.</p>
+    <h4>From your Top 50: rolled in ${C.id} (${top.length})</h4>
+    <ul class="list">${top.map(t => `<li>${t[0]}<span>${t[2]}</span></li>`).join("")}</ul>
+    <p class="src">Body ratings are general; they shift by size and blend.</p>`;
+  $("#fillerSel").addEventListener("change", e => { S.filler = e.target.value; save(); renderOrigin(); });
+}
+
+function renderParts(){
+  const order = ["head", "cap", "band", "wrapper", "binder", "filler", "foot"];
+  $("#pane-parts").innerHTML = `
+    <h2>Parts of a cigar</h2>
+    <p class="muted">Tap a part to jump the slider there and highlight it. You can also tap the cigar itself.</p>
+    <div class="parts">${order.map(k => `<button class="part-btn" type="button" data-part="${k}" aria-pressed="${selectedPart === k && !selectedPriming}"><i style="background:${PARTS[k].color}"></i><b>${PARTS[k].name}</b><small>${PARTS[k].text[0]}</small></button>`).join("")}</div>
+    <h4>Filler leaves, by position on the plant</h4>
+    <p class="muted" style="font-size:.84rem">Leaves higher on the plant get more sun and are stronger. On the model, the ligero sits in the center of the bunch.</p>
+    ${S.view === "plant" ? `<p class="muted" style="font-size:.84rem">Tap a leaf type to pick one off the plant and send it to the filler.</p>` : `<button class="part-btn" type="button" data-goplant style="margin-bottom:6px;border-color:rgba(227,165,72,.5)"><i style="background:#7d9444"></i><b>See where they grow on the plant →</b><small>A 3D tobacco plant. Tap a leaf and it flies into the filler bunch.</small></button>`}
+    <div class="parts">${["ligero","viso","seco","volado"].map(k => `<button class="part-btn" type="button" data-priming="${k}" aria-pressed="${selectedPriming === k}"><i style="background:${PRIMINGS[k].hex}"></i><b>${PRIMINGS[k].name}</b><small>${PRIMINGS[k].text}</small></button>`).join("")}</div>
+    <h4>Terms worth knowing</h4>
+    <div class="card"><p><b>Long filler:</b> whole leaves running the cigar's length; the premium standard.</p><p><b>Handmade:</b> rolled by a person (a torcedor), not a machine.</p><p style="margin-bottom:0"><b>Good construction:</b> a smooth wrapper with no big veins or soft spots, a firm (not hard) feel with a little give, and an even burn line.</p></div>`;
+}
+
+function renderAll(){ renderSize(); renderWrapper(); renderOrigin(); renderParts(); }
+
+document.querySelector(".panel").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.tab) return;
+  if (b.dataset.fam){ S.famFilter = b.dataset.fam; save(); renderSize(); if (S.view === "lineup") rebuild(); return; }
+  if (b.dataset.vitola){ chooseVitola(b.dataset.vitola); if (S.view === "lineup") setView("single"); return; }
+  if (b.dataset.head){ S.head = b.dataset.head; const m = VITOLAS.find(x => x.len === S.L && x.rg === S.rg && x.head === S.head); S.vitola = m ? m.id : "custom"; save(); rebuild(); renderSize(); return; }
+  if (b.dataset.press != null){ S.press = +b.dataset.press; save(); rebuild(); renderSize(); return; }
+  if (b.dataset.shade){ S.shadeFilter = b.dataset.shade; save(); renderWrapper(); return; }
+  if (b.dataset.wrapper){ S.wrapper = b.dataset.wrapper; save(); rebuild(); renderAll(); return; }
+  if (b.dataset.binder){ S.binder = b.dataset.binder; save(); rebuild(); renderWrapper(); renderOrigin(); if (S.view === "single" && explode < .6) animateExplode(.75); return; }
+  if (b.dataset.made){ S.madeIn = b.dataset.made; save(); rebuild(); renderOrigin(); if (explode > .2) animateExplode(0); return; }
+  if (b.dataset.part){ if (S.view !== "single") setView("single"); showPart(b.dataset.part); animateExplode(PARTS[b.dataset.part].stage); return; }
+  if (b.dataset.goplant != null){ setView("plant"); return; }
+  if (b.dataset.priming && S.view === "plant"){ flyZone(b.dataset.priming); showZone(b.dataset.priming); return; }
+  if (b.dataset.priming){ if (S.view !== "single") setView("single"); showPart("filler", b.dataset.priming); animateExplode(1); return; }
+});
+
+document.querySelector(".tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.tab = b.dataset.tab; save(); showTab();
+});
+function showTab(){
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
+  document.querySelectorAll(".pane").forEach(p => p.hidden = p.id !== "pane-" + S.tab);
+}
+
+function chooseVitola(id){
+  const v = vitolaById(id); if (!v) return;
+  S.vitola = id; S.L = v.len; S.rg = v.rg; S.head = v.head; save();
+  rebuild(); renderSize();
+}
+function setView(view){
+  S.view = view; save();
+  document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === view));
+  $("#dock").classList.toggle("off", view !== "single");
+  closeInfo();
+  if (view !== "single"){ tween = null; setExplode(0); }
+  rebuild(); resetView(); zoom = 1; renderParts();
+}
+document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+
+let rebuildQueued = false;
+function queueRebuild(){ if (rebuildQueued) return; rebuildQueued = true; requestAnimationFrame(() => { rebuildQueued = false; rebuild(); }); }
+
+function updateTitle(){
+  const v = vitolaById(S.vitola), W = wrapperById(S.wrapper);
+  if (S.view === "plant"){
+    $("#titleCard").innerHTML = `<b>Tobacco plant</b><span>Tap a leaf to harvest it</span>`;
+  } else if (S.view === "lineup"){
+    const n = VITOLAS.filter(x => S.famFilter === "All" || x.fam === S.famFilter).length;
+    $("#titleCard").innerHTML = `<b>Line-up · ${n} sizes</b><span>To scale · tap one to open it</span>`;
+  } else {
+    $("#titleCard").innerHTML = `<b>${v ? v.name : "Custom"}${S.press ? " · box-pressed" : ""}</b><span>${fmtIn(S.L)} × ${S.rg} · ${W.name} · ${S.madeIn}</span>`;
+  }
+}
+
+/* info card */
+function showPart(part, priming){
+  selectedPart = part; selectedPriming = priming || null;
+  const P = PARTS[part];
+  let title = P.name, body = P.text.map(t => `<p>${t}</p>`).join(""), ctx = "";
+  const W = wrapperById(S.wrapper), B = binderById(S.binder);
+  if (priming){ title = PRIMINGS[priming].name + " (filler)"; body = `<p>${PRIMINGS[priming].text}</p>` + (priming === "ligero" ? "<p>Blenders tend to put it in the center of the bunch because it burns slowest.</p>" : ""); }
+  if (part === "wrapper" || part === "cap") ctx = `<b>On this cigar:</b> ${W.name}. ${W.what}. ${W.flavor}. Grown: ${W.grown}.`;
+  if (part === "binder") ctx = `<b>On this cigar:</b> ${B.name} binder.`;
+  if (part === "filler" && !priming) ctx = `<b>On this cigar:</b> filler grown in ${S.filler}.`;
+  if (part === "band") ctx = `<b>On this cigar:</b> ${vitolaById(S.vitola)?.name || "Custom"}, rolled in ${S.madeIn}.`;
+  if (part === "head") ctx = `<b>On this cigar:</b> ${(HEADS.find(h => h.id === S.head) || HEADS[0]).name} head.`;
+  $("#infoTitle").textContent = title;
+  $("#infoBody").innerHTML = body + (ctx ? `<div class="ctx">${ctx}</div>` : "");
+  $("#info").hidden = false;
+  highlight(); renderParts();
+}
+function closeInfo(){ $("#info").hidden = true; selectedPart = null; selectedPriming = null; highlight(); renderParts(); }
+$("#infoClose").addEventListener("click", closeInfo);
+
+/* toolbar */
+const btnSpin = $("#btnSpin"), btnLabels = $("#btnLabels"), btnMeasure = $("#btnMeasure");
+btnSpin.addEventListener("click", () => { spin = !spin; btnSpin.setAttribute("aria-pressed", spin); });
+btnLabels.addEventListener("click", () => { S.labels = !S.labels; save(); btnLabels.setAttribute("aria-pressed", S.labels); });
+btnMeasure.addEventListener("click", () => { S.measure = !S.measure; save(); btnMeasure.setAttribute("aria-pressed", S.measure); });
+$("#btnReset").addEventListener("click", resetView);
+btnLabels.setAttribute("aria-pressed", S.labels); btnMeasure.setAttribute("aria-pressed", S.measure);
+
+let hintGone = false;
+function hideHint(){ if (hintGone) return; hintGone = true; $("#hint").style.opacity = 0; }
+setTimeout(hideHint, 9000);
+
+/* go */
+resize();
+document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === S.view));
+$("#dock").classList.toggle("off", S.view !== "single");
+root.quaternion.copy(homeFor(S.view));
+rebuild(); renderAll(); showTab(); setExplode(0);
+camZ = fitDist;
+document.fonts && document.fonts.ready.then(() => { texCache.forEach((t, k) => { if (k.startsWith("band|")){ Object.values(t).forEach(x => x.dispose()); texCache.delete(k); } }); rebuild(); });
+requestAnimationFrame(frame);
+window.__cigar = {S, setExplode, rotateBy, root, setView, chooseVitola, setZoom:z => { zoom = z; }, setQuat:(x, y, z) => { slerpTo = null; root.quaternion.setFromEuler(new THREE.Euler(x, y, z)); }};
+</script>
+</body>
+</html>
